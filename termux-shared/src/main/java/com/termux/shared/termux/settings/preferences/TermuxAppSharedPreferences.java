@@ -268,4 +268,13 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
         SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_CRASHLYTICS_COLLECTION_ENABLED, value, false);
     }
 
+
+    public boolean isAnalyticsCollectionEnabled(boolean defaultValue) {
+        return SharedPreferenceUtils.getBoolean(mSharedPreferences, TERMUX_APP.KEY_ANALYTICS_COLLECTION_ENABLED, defaultValue);
+    }
+
+    public void setAnalyticsCollectionEnabled(boolean value) {
+        SharedPreferenceUtils.setBoolean(mSharedPreferences, TERMUX_APP.KEY_ANALYTICS_COLLECTION_ENABLED, value, false);
+    }
+
 }

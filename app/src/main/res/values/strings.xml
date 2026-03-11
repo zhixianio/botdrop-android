@@ -175,6 +175,11 @@
                 <string name="termux_crashlytics_collection_enabled_off">Disable automatic crash collection to Firebase.</string>
                 <string name="termux_crashlytics_collection_enabled_on">Enable automatic crash collection to Firebase.</string>
 
+                <!-- Firebase Analytics -->
+                <string name="termux_analytics_collection_enabled_title">Firebase Analytics</string>
+                <string name="termux_analytics_collection_enabled_off">Disable automatic analytics collection to Firebase.</string>
+                <string name="termux_analytics_collection_enabled_on">Enable automatic analytics collection to Firebase.</string>
+
 
         <!-- Terminal IO Preferences -->
         <string name="termux_terminal_io_preferences_title">Terminal I/O</string>

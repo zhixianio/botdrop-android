@@ -50,6 +50,7 @@ android {
         implementation project(':manager')
         implementation platform("com.google.firebase:firebase-bom:33.13.0")
         implementation "com.google.firebase:firebase-crashlytics"
+        implementation "com.google.firebase:firebase-analytics"
 
         implementation project(":terminal-view")
         implementation project(":termux-shared")
@@ -112,6 +113,7 @@ android {
             shrinkResources false // Reproducible builds
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             buildConfigField "boolean", "CRASHLYTICS_DEFAULT_ENABLED", "true"
+            buildConfigField "boolean", "ANALYTICS_DEFAULT_ENABLED", "true"
 
             if (hasGoogleServicesConfig) {
                 firebaseCrashlytics {
@@ -123,6 +125,7 @@ android {
         debug {
             signingConfig signingConfigs.debug
             buildConfigField "boolean", "CRASHLYTICS_DEFAULT_ENABLED", "false"
+            buildConfigField "boolean", "ANALYTICS_DEFAULT_ENABLED", "false"
         }
     }
 

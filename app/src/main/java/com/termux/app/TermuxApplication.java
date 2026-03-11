@@ -37,6 +37,7 @@ public class TermuxApplication extends moe.shizuku.manager.ShizukuApplication {
 
         // Configure Firebase Crashlytics collection from build defaults and user preference.
         CrashlyticsManager.applyCollectionState(context);
+        AnalyticsManager.applyCollectionState(context);
 
         Logger.logDebug("Starting Application");
 

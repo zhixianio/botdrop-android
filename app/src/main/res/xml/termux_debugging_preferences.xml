@@ -34,6 +34,12 @@
             app:summaryOn="@string/termux_crashlytics_collection_enabled_on"
             app:title="@string/termux_crashlytics_collection_enabled_title" />
 
+        <SwitchPreferenceCompat
+            app:key="analytics_collection_enabled"
+            app:summaryOff="@string/termux_analytics_collection_enabled_off"
+            app:summaryOn="@string/termux_analytics_collection_enabled_on"
+            app:title="@string/termux_analytics_collection_enabled_title" />
+
     </PreferenceCategory>
 
 </PreferenceScreen>

@@ -185,6 +185,11 @@ public final class TermuxPreferenceConstants {
          */
         public static final String KEY_CRASHLYTICS_COLLECTION_ENABLED = "crashlytics_collection_enabled";
 
+        /**
+         * Defines the key for whether Firebase Analytics collection is enabled or not.
+         */
+        public static final String KEY_ANALYTICS_COLLECTION_ENABLED = "analytics_collection_enabled";
+
     }
 
 
