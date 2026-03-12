@@ -35,6 +35,8 @@ public class BotDropService extends Service {
         TermuxConstants.TERMUX_HOME_DIR_PATH + "/.openclaw/shizuku-bridge.json";
     private static final String BOTDROP_APT_SOURCE_LINE =
         "deb [trusted=yes] https://zhixianio.github.io/botdrop-packages/ stable main";
+    private static final String BOTDROP_GITLAB_APT_SOURCE_LINE =
+        "deb [trusted=yes] https://lay2dev.gitlab.io/botdrop-packages/ stable main";
     private static final String BOTDROP_APT_SOURCES_LIST = TermuxConstants.TERMUX_PREFIX_DIR_PATH + "/etc/apt/sources.list";
     private static final String BOTDROP_APT_SOURCES_LIST_D = TermuxConstants.TERMUX_PREFIX_DIR_PATH + "/etc/apt/sources.list.d";
     private static final String BOTDROP_APT_LIST_FILE = BOTDROP_APT_SOURCES_LIST_D + "/botdrop.list";
@@ -1246,7 +1248,8 @@ public class BotDropService extends Service {
         return
             "mkdir -p " + BOTDROP_APT_SOURCES_LIST_D + "\n" +
             "printf '%s\\n' '" + BOTDROP_APT_SOURCE_LINE + "' > " + BOTDROP_APT_LIST_FILE + "\n" +
-            "printf '%s\\n' '" + BOTDROP_APT_SOURCE_LINE + "' > " + BOTDROP_APT_SOURCES_LIST + "\n" +
+            "printf '%s\\n' '" + BOTDROP_GITLAB_APT_SOURCE_LINE + "' >> " + BOTDROP_APT_LIST_FILE + "\n" +
+            "cp " + BOTDROP_APT_LIST_FILE + " " + BOTDROP_APT_SOURCES_LIST + "\n" +
             "for f in " + BOTDROP_APT_SOURCES_LIST_D + "/*.list; do\n" +
             "    if [ -f \"$f\" ] && [ \"$f\" != \"" + BOTDROP_APT_LIST_FILE + "\" ]; then\n" +
             "        rm -f \"$f\"\n" +

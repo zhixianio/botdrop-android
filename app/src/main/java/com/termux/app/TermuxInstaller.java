@@ -64,6 +64,8 @@ public final class TermuxInstaller {
     private static final String LOG_TAG = "TermuxInstaller";
     private static final String BOTDROP_APT_SOURCE_LINE =
         "deb [trusted=yes] https://zhixianio.github.io/botdrop-packages/ stable main";
+    private static final String BOTDROP_GITLAB_APT_SOURCE_LINE =
+        "deb [trusted=yes] https://lay2dev.gitlab.io/botdrop-packages/ stable main";
     private static final String BOTDROP_APT_SOURCES_LIST = TERMUX_PREFIX_DIR_PATH + "/etc/apt/sources.list";
     private static final String BOTDROP_APT_SOURCES_LIST_D = TERMUX_PREFIX_DIR_PATH + "/etc/apt/sources.list.d";
     private static final String BOTDROP_APT_LIST_FILE = BOTDROP_APT_SOURCES_LIST_D + "/botdrop.list";
@@ -117,7 +119,7 @@ public final class TermuxInstaller {
             if (TermuxFileUtils.isTermuxPrefixDirectoryEmpty()) {
                 Logger.logInfo(LOG_TAG, "The termux prefix directory \"" + TERMUX_PREFIX_DIR_PATH + "\" exists but is empty or only contains specific unimportant files.");
             } else {
-                // Upgrade path: refresh BotDrop scripts and force BotDrop APT source only.
+                // Upgrade path: refresh BotDrop scripts and force BotDrop APT sources.
                 createBotDropScripts(openclawVersion);
                 whenDone.run();
                 return;
@@ -464,9 +466,7 @@ public final class TermuxInstaller {
                 "mkdir -p $HOME/.openclaw/agents/main/agent\n" +
                 "mkdir -p $HOME/.openclaw/agents/main/sessions\n" +
                 "mkdir -p $HOME/.openclaw/credentials\n" +
-                "# Add BotDrop APT source\n" +
-                "mkdir -p $PREFIX/etc/apt/sources.list.d\n" +
-                "echo 'deb [trusted=yes] https://zhixianio.github.io/botdrop-packages/ stable main' > $PREFIX/etc/apt/sources.list.d/botdrop.list\n" +
+                "# BotDrop APT sources were already written above.\n" +
                 "# Start sshd (port 8022)\n" +
                 "if ! pgrep -x sshd >/dev/null 2>&1; then\n" +
                 "    sshd 2>/dev/null\n" +
@@ -584,7 +584,8 @@ public final class TermuxInstaller {
         return
             "mkdir -p " + BOTDROP_APT_SOURCES_LIST_D + "\n" +
             "printf '%s\\n' '" + BOTDROP_APT_SOURCE_LINE + "' > " + BOTDROP_APT_LIST_FILE + "\n" +
-            "printf '%s\\n' '" + BOTDROP_APT_SOURCE_LINE + "' > " + BOTDROP_APT_SOURCES_LIST + "\n" +
+            "printf '%s\\n' '" + BOTDROP_GITLAB_APT_SOURCE_LINE + "' >> " + BOTDROP_APT_LIST_FILE + "\n" +
+            "cp " + BOTDROP_APT_LIST_FILE + " " + BOTDROP_APT_SOURCES_LIST + "\n" +
             "for f in " + BOTDROP_APT_SOURCES_LIST_D + "/*.list; do\n" +
             "    if [ -f \"$f\" ] && [ \"$f\" != \"" + BOTDROP_APT_LIST_FILE + "\" ]; then\n" +
             "        rm -f \"$f\"\n" +
