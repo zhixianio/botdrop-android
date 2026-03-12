@@ -21,6 +21,7 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 
 import com.termux.R;
+import com.termux.app.AnalyticsManager;
 import com.termux.shizuku.ShizukuStatusActivity;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.TermuxConstants;
@@ -175,11 +176,26 @@ public class AutomationPanelActivity extends Activity {
         mStartU2ServiceButton = findViewById(R.id.btn_start_u2_service);
         mStopU2ServiceButton = findViewById(R.id.btn_stop_u2_service);
 
-        mBackButton.setOnClickListener(v -> finish());
-        mOpenShizukuButton.setOnClickListener(v -> openShizukuStatus());
-        mShizukuPermissionButton.setOnClickListener(v -> diagnoseShizukuPermission());
-        mStartU2ServiceButton.setOnClickListener(v -> startU2Service());
-        mStopU2ServiceButton.setOnClickListener(v -> stopU2Service());
+        mBackButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "automation_back_tap");
+            finish();
+        });
+        mOpenShizukuButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "automation_open_shizuku_tap");
+            openShizukuStatus();
+        });
+        mShizukuPermissionButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "automation_permission_tap");
+            diagnoseShizukuPermission();
+        });
+        mStartU2ServiceButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "automation_u2_start_tap");
+            startU2Service();
+        });
+        mStopU2ServiceButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "automation_u2_stop_tap");
+            stopU2Service();
+        });
 
         bindBotDropService();
         initShizukuShellExecutor();
@@ -190,6 +206,7 @@ public class AutomationPanelActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        AnalyticsManager.logScreen(this, "automation_panel", "AutomationPanelActivity");
         refreshShizukuPermissionState();
         startStatusPolling();
     }

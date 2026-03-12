@@ -20,6 +20,7 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationManagerCompat;
 
 import com.termux.R;
+import com.termux.app.AnalyticsManager;
 import com.termux.app.TermuxInstaller;
 import com.termux.shared.logger.Logger;
 
@@ -89,11 +90,24 @@ public class BotDropLauncherActivity extends Activity {
         // Trigger update check early (results stored for Dashboard to display)
         UpdateChecker.check(this, null);
 
-        mNotificationButton.setOnClickListener(v -> openNotificationSettings());
-        mBatteryButton.setOnClickListener(v -> requestBatteryOptimization());
-        mBackgroundSettingsButton.setOnClickListener(v -> openAdvancedBackgroundSettings());
-        mCheckUpdateButton.setOnClickListener(v -> checkUpdateManually());
+        mNotificationButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "launcher_notification_tap");
+            openNotificationSettings();
+        });
+        mBatteryButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "launcher_battery_tap");
+            requestBatteryOptimization();
+        });
+        mBackgroundSettingsButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "launcher_background_tap");
+            openAdvancedBackgroundSettings();
+        });
+        mCheckUpdateButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "launcher_update_check_tap");
+            checkUpdateManually();
+        });
         mContinueButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "launcher_continue_tap");
             mPermissionsPhaseComplete = true;
             getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 .edit()
@@ -134,11 +148,13 @@ public class BotDropLauncherActivity extends Activity {
     private void showWelcomePhase() {
         mWelcomeContainer.setVisibility(View.VISIBLE);
         mLoadingContainer.setVisibility(View.GONE);
+        AnalyticsManager.logScreen(this, "launcher_welcome", "BotDropLauncherActivity");
     }
 
     private void showLoadingPhase() {
         mWelcomeContainer.setVisibility(View.GONE);
         mLoadingContainer.setVisibility(View.VISIBLE);
+        AnalyticsManager.logScreen(this, "launcher_loading", "BotDropLauncherActivity");
     }
 
     // --- Permission checks ---

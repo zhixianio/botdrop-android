@@ -19,6 +19,7 @@ import androidx.viewpager2.adapter.FragmentStateAdapter;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.termux.R;
+import com.termux.app.AnalyticsManager;
 import com.termux.app.TermuxActivity;
 import com.termux.shared.android.PermissionUtils;
 import com.termux.shared.logger.Logger;
@@ -112,7 +113,10 @@ public class SetupActivity extends AppCompatActivity {
         // Setup Open Terminal button if it exists in layout
         Button openTerminalBtn = findViewById(R.id.setup_open_terminal);
         if (openTerminalBtn != null) {
-            openTerminalBtn.setOnClickListener(v -> openTerminal());
+            openTerminalBtn.setOnClickListener(v -> {
+                AnalyticsManager.logEvent(this, "setup_terminal_tap", "step", getAnalyticsStepName(mViewPager.getCurrentItem()));
+                openTerminal();
+            });
         }
 
         // Set up ViewPager2
@@ -123,11 +127,19 @@ public class SetupActivity extends AppCompatActivity {
         // Start at specified step
         int startStep = getIntent().getIntExtra(EXTRA_START_STEP, STEP_AGENT_SELECT);
         mViewPager.setCurrentItem(startStep, false);
+        mViewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                logStepViewed(position);
+            }
+        });
+        logStepViewed(startStep);
 
         // Set up navigation buttons (hidden by default, fragments can show if needed)
         mBackButton.setOnClickListener(v -> {
             int current = mViewPager.getCurrentItem();
             if (current > 0) {
+                AnalyticsManager.logEvent(SetupActivity.this, "setup_back_tap", "step", getAnalyticsStepName(current));
                 mViewPager.setCurrentItem(current - 1);
             }
         });
@@ -143,6 +155,7 @@ public class SetupActivity extends AppCompatActivity {
             // Default: advance to next step
             int current = mViewPager.getCurrentItem();
             if (current < STEP_COUNT - 1) {
+                AnalyticsManager.logEvent(this, "setup_next_tap", "step", getAnalyticsStepName(current));
                 mViewPager.setCurrentItem(current + 1);
             }
         });
@@ -150,6 +163,7 @@ public class SetupActivity extends AppCompatActivity {
         // Setup manual update check button
         Button checkUpdatesBtn = findViewById(R.id.setup_check_updates);
         checkUpdatesBtn.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "setup_update_check_tap", "step", getAnalyticsStepName(mViewPager.getCurrentItem()));
             v.setEnabled(false);
             UpdateChecker.forceCheck(this, (version, url, notes) -> {
                 v.setEnabled(true);
@@ -157,7 +171,10 @@ public class SetupActivity extends AppCompatActivity {
                     new AlertDialog.Builder(this)
                 .setTitle(getString(R.string.botdrop_update_update_available))
                 .setMessage(getString(R.string.botdrop_update_update_message, version))
-                .setPositiveButton(getString(R.string.botdrop_open_browser), (d, w) -> openBotdropUpdatePage())
+                .setPositiveButton(getString(R.string.botdrop_open_browser), (d, w) -> {
+                    AnalyticsManager.logEvent(this, "setup_update_open_browser");
+                    openBotdropUpdatePage();
+                })
                 .setNegativeButton(getString(R.string.botdrop_cancel), null)
                 .show();
                 } else {
@@ -185,6 +202,25 @@ public class SetupActivity extends AppCompatActivity {
     public void openTerminal() {
         Intent intent = new Intent(this, TermuxActivity.class);
         startActivity(intent);
+    }
+
+    private void logStepViewed(int step) {
+        AnalyticsManager.logScreen(this, "setup_" + getAnalyticsStepName(step), "SetupActivity");
+    }
+
+    private String getAnalyticsStepName(int step) {
+        switch (step) {
+            case STEP_AGENT_SELECT:
+                return "agent_select";
+            case STEP_INSTALL:
+                return "install";
+            case STEP_API_KEY:
+                return "auth";
+            case STEP_CHANNEL:
+                return "channel";
+            default:
+                return "unknown";
+        }
     }
 
     /**
@@ -243,6 +279,7 @@ public class SetupActivity extends AppCompatActivity {
         } else {
             // Last step complete → go to dashboard
             Logger.logInfo(LOG_TAG, "Setup complete");
+            AnalyticsManager.logEvent(this, "setup_complete");
             Intent intent = new Intent(this, DashboardActivity.class);
             startActivity(intent);
             finish();
@@ -250,16 +287,21 @@ public class SetupActivity extends AppCompatActivity {
     }
 
     private void showOpenclawRestoreDialog(@NonNull Runnable continueWithoutRestore, @NonNull File backupFile) {
+        AnalyticsManager.logEvent(this, "setup_restore_prompt");
         new AlertDialog.Builder(this)
             .setTitle(getString(R.string.botdrop_restore_openclaw_setup_title))
             .setMessage(getString(R.string.botdrop_restore_openclaw_setup_message))
             .setPositiveButton(getString(R.string.botdrop_restore_data_button), (dialog, which) -> {
+                AnalyticsManager.logEvent(this, "setup_restore_accept");
                 runWithOpenclawStoragePermission(
                     () -> restoreOpenclawConfigAndContinue(backupFile, continueWithoutRestore),
                     continueWithoutRestore
                 );
             })
-            .setNegativeButton(getString(R.string.botdrop_start_from_scratch), (dialog, which) -> continueWithoutRestore.run())
+            .setNegativeButton(getString(R.string.botdrop_start_from_scratch), (dialog, which) -> {
+                AnalyticsManager.logEvent(this, "setup_restore_skip");
+                continueWithoutRestore.run();
+            })
             .setCancelable(false)
             .show();
     }
@@ -269,11 +311,13 @@ public class SetupActivity extends AppCompatActivity {
             boolean restored = restoreOpenclawBackupFile(backupFile);
             runOnUiThread(() -> {
                 if (!restored) {
+                    AnalyticsManager.logEvent(this, "setup_restore_failed");
                     Toast.makeText(this, getString(R.string.botdrop_failed_openclaw_backup_restore), Toast.LENGTH_SHORT).show();
                     continueWithoutRestore.run();
                     return;
                 }
 
+                AnalyticsManager.logEvent(this, "setup_restore_completed");
                 Toast.makeText(this, getString(R.string.botdrop_openclaw_data_restored), Toast.LENGTH_SHORT).show();
                 ConfigTemplateCache.clearTemplate(this);
                 Intent intent = new Intent(this, DashboardActivity.class);

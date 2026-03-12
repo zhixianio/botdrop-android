@@ -23,6 +23,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.termux.R;
+import com.termux.app.AnalyticsManager;
 import com.termux.shared.logger.Logger;
 
 import java.util.Arrays;
@@ -103,9 +104,18 @@ public class AuthFragment extends Fragment implements SetupActivity.StepFragment
 
         updateBaseUrlSectionVisibility(false);
 
-        mSelectButton.setOnClickListener(v -> openModelSelector());
-        mToggleVisibility.setOnClickListener(v -> togglePasswordVisibility());
-        mVerifyButton.setOnClickListener(v -> verifyAndContinue());
+        mSelectButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(requireContext(), "auth_model_select_tap");
+            openModelSelector();
+        });
+        mToggleVisibility.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(requireContext(), "auth_key_toggle_tap");
+            togglePasswordVisibility();
+        });
+        mVerifyButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(requireContext(), "auth_verify_tap");
+            verifyAndContinue();
+        });
 
         return view;
     }
@@ -166,6 +176,7 @@ public class AuthFragment extends Fragment implements SetupActivity.StepFragment
             }
 
             String fullModel = provider + "/" + model;
+            AnalyticsManager.logEvent(requireContext(), "auth_model_selected", "provider", provider);
             mSelectedModel = fullModel;
             mSelectedProvider = findProviderById(provider);
             mModelText.setText(fullModel);
@@ -260,6 +271,7 @@ public class AuthFragment extends Fragment implements SetupActivity.StepFragment
 
     private void verifyAndContinue() {
         if (mSelectedModel == null || mSelectedProvider == null) {
+            AnalyticsManager.logEvent(requireContext(), "auth_verify_failed", "reason", "missing_model");
             showStatus(getString(R.string.botdrop_select_model_first), false);
             return;
         }
@@ -270,21 +282,25 @@ public class AuthFragment extends Fragment implements SetupActivity.StepFragment
             baseUrl = mBaseUrlInput == null ? null : normalizeCustomBaseUrl(mBaseUrlInput.getText().toString());
             String selectedBaseUrl = normalizeCustomBaseUrl(mSelectedProviderBaseUrl);
             if (!TextUtils.equals(baseUrl, selectedBaseUrl)) {
+                AnalyticsManager.logEvent(requireContext(), "auth_verify_failed", "reason", "base_url_changed");
                 showStatus(getString(R.string.botdrop_base_url_changed_reselect_provider_model), false);
                 return;
             }
 
             if (TextUtils.isEmpty(baseUrl)) {
+                AnalyticsManager.logEvent(requireContext(), "auth_verify_failed", "reason", "missing_base_url");
                 showStatus(getString(R.string.botdrop_enter_custom_base_url), false);
                 return;
             }
         }
         if (TextUtils.isEmpty(credential)) {
+            AnalyticsManager.logEvent(requireContext(), "auth_verify_failed", "reason", "missing_api_key");
             showStatus(getString(R.string.botdrop_enter_api_key), false);
             return;
         }
 
         if (credential.length() < 8) {
+            AnalyticsManager.logEvent(requireContext(), "auth_verify_failed", "reason", "invalid_api_key_format");
             showStatus(getString(R.string.botdrop_invalid_api_key_format), false);
             return;
         }
@@ -311,6 +327,7 @@ public class AuthFragment extends Fragment implements SetupActivity.StepFragment
         Logger.logInfo(LOG_TAG, "Saving credentials for provider: " + providerId + ", model: " + modelToUse);
         String fullModel = providerId + "/" + modelToUse;
         if (isCustomProvider && (mCurrentCustomModels == null || mCurrentCustomModels.isEmpty())) {
+            AnalyticsManager.logEvent(requireContext(), "auth_verify_failed", "reason", "missing_custom_model_list");
             showStatus(getString(R.string.botdrop_no_custom_model_list_reselect), false);
             return;
         }
@@ -323,6 +340,7 @@ public class AuthFragment extends Fragment implements SetupActivity.StepFragment
             isCustomProvider ? mCurrentCustomModels : null
         );
         if (saved) {
+            AnalyticsManager.logEvent(requireContext(), "auth_verify_success", "provider", providerId);
             if (getContext() != null) {
                 ModelSelectorDialog.cacheProviderApiKey(requireContext(), providerId, credential);
             }
@@ -352,6 +370,7 @@ public class AuthFragment extends Fragment implements SetupActivity.StepFragment
             };
             mVerifyButton.postDelayed(mNavigationRunnable, 800);
         } else {
+            AnalyticsManager.logEvent(requireContext(), "auth_verify_failed", "reason", "write_config_failed");
             showStatus(getString(R.string.botdrop_error_write_config), false);
             resetVerifyButton();
         }

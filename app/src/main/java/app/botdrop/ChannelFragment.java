@@ -13,6 +13,7 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 import com.termux.R;
+import com.termux.app.AnalyticsManager;
 import com.termux.shared.logger.Logger;
 
 /**
@@ -68,6 +69,17 @@ public class ChannelFragment extends Fragment {
         }
         int defaultTab = resolveTabIndex(platform);
         mChannelPager.setCurrentItem(defaultTab, false);
+        mChannelPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                if (getContext() != null) {
+                    AnalyticsManager.logEvent(getContext(), "channel_tab_view", "platform", getAnalyticsPlatform(position));
+                }
+            }
+        });
+        if (getContext() != null) {
+            AnalyticsManager.logEvent(getContext(), "channel_tab_view", "platform", getAnalyticsPlatform(defaultTab));
+        }
     }
 
     private int resolveTabIndex(String platform) {
@@ -78,5 +90,16 @@ public class ChannelFragment extends Fragment {
             return ChannelPagerAdapter.PAGE_FEISHU;
         }
         return ChannelPagerAdapter.PAGE_TELEGRAM;
+    }
+
+    private String getAnalyticsPlatform(int position) {
+        switch (position) {
+            case ChannelPagerAdapter.PAGE_DISCORD:
+                return ChannelConfigMeta.PLATFORM_DISCORD;
+            case ChannelPagerAdapter.PAGE_FEISHU:
+                return ChannelConfigMeta.PLATFORM_FEISHU;
+            default:
+                return ChannelConfigMeta.PLATFORM_TELEGRAM;
+        }
     }
 }

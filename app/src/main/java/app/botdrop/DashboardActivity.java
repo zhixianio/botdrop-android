@@ -32,6 +32,7 @@ import androidx.core.content.ContextCompat;
 
 import app.botdrop.shizuku.ShizukuBridgeService;
 import com.termux.R;
+import com.termux.app.AnalyticsManager;
 import com.termux.app.TermuxActivity;
 import com.termux.shared.android.PermissionUtils;
 import com.termux.shared.logger.Logger;
@@ -249,13 +250,31 @@ public class DashboardActivity extends Activity {
         mOpenAutomationPanelButton = findViewById(R.id.btn_open_automation_panel);
 
         // Setup button listeners
-        mStartButton.setOnClickListener(v -> startGateway());
-        mStopButton.setOnClickListener(v -> stopGateway());
-        mRestartButton.setOnClickListener(v -> restartGatewayForControl());
-        openTerminalButton.setOnClickListener(v -> openTerminal());
-        changeModelButton.setOnClickListener(v -> showModelSelector());
+        mStartButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "dashboard_start_tap");
+            startGateway();
+        });
+        mStopButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "dashboard_stop_tap");
+            stopGateway();
+        });
+        mRestartButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "dashboard_restart_tap");
+            restartGatewayForControl();
+        });
+        openTerminalButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "dashboard_terminal_tap");
+            openTerminal();
+        });
+        changeModelButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "dashboard_model_tap");
+            showModelSelector();
+        });
         if (mOpenAutomationPanelButton != null) {
-            mOpenAutomationPanelButton.setOnClickListener(v -> openAutomationPanel());
+            mOpenAutomationPanelButton.setOnClickListener(v -> {
+                AnalyticsManager.logEvent(this, "dashboard_automation_tap");
+                openAutomationPanel();
+            });
         }
 
         mSshCard = findViewById(R.id.ssh_card);
@@ -269,41 +288,68 @@ public class DashboardActivity extends Activity {
         mOpenclawVersionText = findViewById(R.id.openclaw_version_text);
         mOpenclawCheckUpdateButton = findViewById(R.id.btn_check_openclaw_update);
         if (mOpenclawCheckUpdateButton != null) {
-            mOpenclawCheckUpdateButton.setOnClickListener(v -> forceCheckOpenclawUpdate());
+            mOpenclawCheckUpdateButton.setOnClickListener(v -> {
+                AnalyticsManager.logEvent(this, "openclaw_update_check_tap");
+                forceCheckOpenclawUpdate();
+            });
         }
         mOpenclawLogButton = findViewById(R.id.btn_view_openclaw_log);
         if (mOpenclawLogButton != null) {
-            mOpenclawLogButton.setOnClickListener(v -> showOpenclawLog());
+            mOpenclawLogButton.setOnClickListener(v -> {
+                AnalyticsManager.logEvent(this, "openclaw_log_tap");
+                showOpenclawLog();
+            });
         }
         mBackToAgentSelectionButton = findViewById(R.id.btn_back_to_agent_selection);
         if (mBackToAgentSelectionButton != null) {
-            mBackToAgentSelectionButton.setOnClickListener(v -> openAgentSelection());
+            mBackToAgentSelectionButton.setOnClickListener(v -> {
+                AnalyticsManager.logEvent(this, "dashboard_agent_select_tap");
+                openAgentSelection();
+            });
         }
         mOpenclawWebUiButton = findViewById(R.id.btn_open_openclaw_web_ui);
         if (mOpenclawWebUiButton != null) {
-            mOpenclawWebUiButton.setOnClickListener(v -> openOpenclawWebUi());
+            mOpenclawWebUiButton.setOnClickListener(v -> {
+                AnalyticsManager.logEvent(this, "openclaw_webui_tap");
+                openOpenclawWebUi();
+            });
         }
         mOpenclawBackupButton = findViewById(R.id.btn_backup_openclaw_config);
         if (mOpenclawBackupButton != null) {
-            mOpenclawBackupButton.setOnClickListener(v -> backupOpenclawConfigToSdcard());
+            mOpenclawBackupButton.setOnClickListener(v -> {
+                AnalyticsManager.logEvent(this, "openclaw_backup_tap");
+                backupOpenclawConfigToSdcard();
+            });
         }
         mOpenclawRestoreButton = findViewById(R.id.btn_restore_openclaw_config);
         if (mOpenclawRestoreButton != null) {
-            mOpenclawRestoreButton.setOnClickListener(v -> restoreOpenclawConfigFromSdcard());
+            mOpenclawRestoreButton.setOnClickListener(v -> {
+                AnalyticsManager.logEvent(this, "openclaw_restore_tap");
+                restoreOpenclawConfigFromSdcard();
+            });
         }
         if (mTelegramChannelRow != null) {
             mTelegramChannelRow.setOnClickListener(
-                v -> openChannelConfig(ChannelConfigMeta.PLATFORM_TELEGRAM)
+                v -> {
+                    AnalyticsManager.logEvent(this, "dashboard_channel_tap", "platform", ChannelConfigMeta.PLATFORM_TELEGRAM);
+                    openChannelConfig(ChannelConfigMeta.PLATFORM_TELEGRAM);
+                }
             );
         }
         if (mDiscordChannelRow != null) {
             mDiscordChannelRow.setOnClickListener(
-                v -> openChannelConfig(ChannelConfigMeta.PLATFORM_DISCORD)
+                v -> {
+                    AnalyticsManager.logEvent(this, "dashboard_channel_tap", "platform", ChannelConfigMeta.PLATFORM_DISCORD);
+                    openChannelConfig(ChannelConfigMeta.PLATFORM_DISCORD);
+                }
             );
         }
         if (mFeishuChannelRow != null) {
             mFeishuChannelRow.setOnClickListener(
-                v -> openChannelConfig(ChannelConfigMeta.PLATFORM_FEISHU)
+                v -> {
+                    AnalyticsManager.logEvent(this, "dashboard_channel_tap", "platform", ChannelConfigMeta.PLATFORM_FEISHU);
+                    openChannelConfig(ChannelConfigMeta.PLATFORM_FEISHU);
+                }
             );
         }
 
@@ -321,11 +367,13 @@ public class DashboardActivity extends Activity {
         UpdateChecker.check(this, new UpdateChecker.UpdateCallback() {
             @Override
             public void onUpdateAvailable(String latestVersion, String downloadUrl, String notes) {
+                AnalyticsManager.logEvent(DashboardActivity.this, "app_update_available");
                 showUpdateBanner(latestVersion, downloadUrl);
             }
 
             @Override
             public void onNoUpdate() {
+                AnalyticsManager.logEvent(DashboardActivity.this, "app_update_none");
                 hideUpdateBanner();
             }
         });
@@ -380,6 +428,7 @@ public class DashboardActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        AnalyticsManager.logScreen(this, "dashboard_main", "DashboardActivity");
         mUiVisible = true;
         if (mBound) {
             startStatusRefresh();
@@ -1275,15 +1324,18 @@ public class DashboardActivity extends Activity {
     }
 
     private void showUpdateBanner(String latestVersion, String downloadUrl) {
+        AnalyticsManager.logEvent(this, "app_update_banner_shown");
         mUpdateBannerText.setText(getString(R.string.botdrop_update_available_version, latestVersion));
         mUpdateBanner.setVisibility(View.VISIBLE);
 
         findViewById(R.id.btn_update_download).setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "app_update_download_tap");
             Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl));
             startActivity(browserIntent);
         });
 
         findViewById(R.id.btn_update_dismiss).setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "app_update_dismiss_tap");
             mUpdateBanner.setVisibility(View.GONE);
             UpdateChecker.dismiss(this, latestVersion);
         });
@@ -1347,9 +1399,11 @@ public class DashboardActivity extends Activity {
 
         mBotDropService.startGateway(result -> {
             if (result.success) {
+                AnalyticsManager.logEvent(this, "dashboard_start_success");
                 Toast.makeText(this, getString(R.string.botdrop_gateway_started), Toast.LENGTH_SHORT).show();
                 refreshStatus();
             } else {
+                AnalyticsManager.logEvent(this, "dashboard_start_failed");
                 Toast.makeText(this, getString(R.string.botdrop_gateway_start_failed), Toast.LENGTH_SHORT).show();
                 mStartButton.setEnabled(true);
                 Logger.logError(LOG_TAG, "Start failed: " + result.stderr);
@@ -1370,9 +1424,11 @@ public class DashboardActivity extends Activity {
 
         mBotDropService.stopGateway(result -> {
             if (result.success) {
+                AnalyticsManager.logEvent(this, "dashboard_stop_success");
                 Toast.makeText(this, getString(R.string.botdrop_gateway_stopped_toast), Toast.LENGTH_SHORT).show();
                 refreshStatus();
             } else {
+                AnalyticsManager.logEvent(this, "dashboard_stop_failed");
                 Toast.makeText(this, getString(R.string.botdrop_gateway_stop_failed), Toast.LENGTH_SHORT).show();
                 mStopButton.setEnabled(true);
                 Logger.logError(LOG_TAG, "Stop failed: " + result.stderr);
@@ -1393,9 +1449,11 @@ public class DashboardActivity extends Activity {
 
         mBotDropService.restartGateway(result -> {
             if (result.success) {
+                AnalyticsManager.logEvent(this, "dashboard_restart_success");
                 Toast.makeText(this, getString(R.string.botdrop_gateway_restarted), Toast.LENGTH_SHORT).show();
                 refreshStatus();
             } else {
+                AnalyticsManager.logEvent(this, "dashboard_restart_failed");
                 Toast.makeText(this, getString(R.string.botdrop_gateway_restart_failed), Toast.LENGTH_SHORT).show();
                 mRestartButton.setEnabled(true);
                 Logger.logError(LOG_TAG, "Restart failed: " + result.stderr);
@@ -2571,11 +2629,13 @@ public class DashboardActivity extends Activity {
         OpenClawUpdateChecker.check(this, mBotDropService, new OpenClawUpdateChecker.UpdateCallback() {
             @Override
             public void onUpdateAvailable(String current, String latest) {
+                AnalyticsManager.logEvent(DashboardActivity.this, "openclaw_update_available_auto");
                 showOpenclawUpdateDialog(current, latest, false);
             }
 
             @Override
             public void onNoUpdate() {
+                AnalyticsManager.logEvent(DashboardActivity.this, "openclaw_update_none_auto");
                 dismissOpenclawUpdateDialog();
             }
         });
@@ -2583,6 +2643,7 @@ public class DashboardActivity extends Activity {
 
     private void forceCheckOpenclawUpdate() {
         if (!mBound || mBotDropService == null) {
+            AnalyticsManager.logEvent(this, "openclaw_update_check_blocked");
             Toast.makeText(this, getString(R.string.botdrop_service_not_connected), Toast.LENGTH_SHORT).show();
             return;
         }
@@ -2600,6 +2661,7 @@ public class DashboardActivity extends Activity {
         OpenClawUpdateChecker.check(this, mBotDropService, new OpenClawUpdateChecker.UpdateCallback() {
             @Override
             public void onUpdateAvailable(String current, String latest) {
+                AnalyticsManager.logEvent(DashboardActivity.this, "openclaw_update_available_manual");
                 mOpenclawCheckUpdateButton.setEnabled(true);
                 mOpenclawCheckUpdateButton.setText(getString(R.string.botdrop_check_openclaw_updates));
                 mOpenclawManualCheckRequested = false;
@@ -2608,6 +2670,7 @@ public class DashboardActivity extends Activity {
 
             @Override
             public void onNoUpdate() {
+                AnalyticsManager.logEvent(DashboardActivity.this, "openclaw_update_none_manual");
                 mOpenclawCheckUpdateButton.setEnabled(true);
                 mOpenclawCheckUpdateButton.setText(getString(R.string.botdrop_check_openclaw_updates));
                 mOpenclawManualCheckRequested = false;

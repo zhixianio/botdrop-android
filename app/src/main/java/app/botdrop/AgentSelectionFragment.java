@@ -21,6 +21,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.termux.R;
+import com.termux.app.AnalyticsManager;
 import com.termux.app.TermuxInstaller;
 import com.termux.shared.logger.Logger;
 
@@ -93,9 +94,11 @@ public class AgentSelectionFragment extends Fragment {
         installButton.setText(isOpenclawInstalled ? R.string.botdrop_open : R.string.botdrop_install);
         installButton.setOnClickListener(v -> {
             if (isOpenclawInstalled) {
+                AnalyticsManager.logEvent(requireContext(), "agent_open_dashboard_tap");
                 Logger.logInfo(LOG_TAG, "OpenClaw already installed, opening dashboard");
                 openDashboard();
             } else {
+                AnalyticsManager.logEvent(requireContext(), "agent_install_tap");
                 Logger.logInfo(LOG_TAG, "OpenClaw selected for installation");
                 SetupActivity activity = (SetupActivity) getActivity();
                 if (activity != null && !activity.isFinishing()) {
@@ -104,10 +107,14 @@ public class AgentSelectionFragment extends Fragment {
             }
         });
 
-        versionManagerButton.setOnClickListener(v -> showOpenclawVersionListDialog());
+        versionManagerButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(requireContext(), "agent_version_manager_tap");
+            showOpenclawVersionListDialog();
+        });
 
         // URL click handlers
         view.findViewById(R.id.agent_openclaw_url).setOnClickListener(v -> {
+            AnalyticsManager.logEvent(requireContext(), "agent_openclaw_link_tap");
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://openclaw.ai")));
         });
 
