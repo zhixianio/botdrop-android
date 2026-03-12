@@ -10,14 +10,6 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/botdrop_step_3_4"
-        android:textSize="14sp"
-        android:textColor="@color/botdrop_secondary_text"
-        android:layout_marginBottom="8dp" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
         android:text="@string/botdrop_connect_im_channels"
         android:textSize="24sp"
         android:textStyle="bold"
