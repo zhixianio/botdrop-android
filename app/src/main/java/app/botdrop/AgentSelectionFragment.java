@@ -177,7 +177,7 @@ public class AgentSelectionFragment extends Fragment {
         }
 
         if (!mServiceBound || mBotDropService == null) {
-            new AlertDialog.Builder(ctx)
+            BotDropDialogStyler.createBuilder(ctx)
                 .setTitle(R.string.botdrop_openclaw_versions)
                 .setMessage(R.string.botdrop_service_not_connected_try_later)
                 .setNegativeButton(R.string.botdrop_close, null)
@@ -191,7 +191,7 @@ public class AgentSelectionFragment extends Fragment {
 
         mOpenclawVersionActionInProgress = true;
         final long requestId = ++mOpenclawVersionRequestId;
-        mOpenclawVersionManagerDialog = new AlertDialog.Builder(ctx)
+        mOpenclawVersionManagerDialog = BotDropDialogStyler.createBuilder(ctx)
             .setTitle(R.string.botdrop_openclaw_versions)
             .setMessage(R.string.botdrop_loading_versions)
             .setCancelable(false)
@@ -234,7 +234,7 @@ public class AgentSelectionFragment extends Fragment {
             mOpenclawVersionActionInProgress = false;
             return;
         }
-        mOpenclawVersionManagerDialog = new AlertDialog.Builder(ctx)
+        mOpenclawVersionManagerDialog = BotDropDialogStyler.createBuilder(ctx)
             .setTitle(R.string.botdrop_openclaw_versions)
             .setMessage(message)
             .setNegativeButton(R.string.botdrop_close, (d, w) -> mOpenclawVersionActionInProgress = false)
@@ -278,7 +278,7 @@ public class AgentSelectionFragment extends Fragment {
         }
 
         mOpenclawVersionActionInProgress = true;
-        mOpenclawVersionManagerDialog = new AlertDialog.Builder(ctx)
+        mOpenclawVersionManagerDialog = BotDropDialogStyler.createBuilder(ctx)
             .setTitle(R.string.botdrop_openclaw_versions)
             .setItems(labels, (d, which) -> {
                 if (which < 0 || which >= finalNormalized.size()) {
@@ -327,7 +327,7 @@ public class AgentSelectionFragment extends Fragment {
         }
 
         if (BotDropService.isOpenclawInstalled()) {
-            new AlertDialog.Builder(ctx)
+            BotDropDialogStyler.createBuilder(ctx)
                 .setTitle(R.string.botdrop_install)
                 .setMessage(getString(
                     R.string.botdrop_install_openclaw_installed_title,
@@ -340,7 +340,7 @@ public class AgentSelectionFragment extends Fragment {
                 .setOnDismissListener(d -> mOpenclawVersionActionInProgress = false)
                 .show();
         } else {
-            new AlertDialog.Builder(ctx)
+            BotDropDialogStyler.createBuilder(ctx)
                 .setTitle(R.string.botdrop_install)
                 .setMessage(getString(R.string.botdrop_install_openclaw_not_installed_title, installVersion))
                 .setNegativeButton(R.string.botdrop_cancel, (d, w) -> mOpenclawVersionActionInProgress = false)
@@ -604,7 +604,7 @@ public class AgentSelectionFragment extends Fragment {
         boolean isPinned = PINNED_VERSION.equals(current);
 
         if (isPinned) {
-            new AlertDialog.Builder(ctx)
+            BotDropDialogStyler.createBuilder(ctx)
                 .setTitle(R.string.botdrop_openclaw_version_manager_title)
                 .setMessage(getString(R.string.botdrop_current_install_version, PINNED_VERSION) + "\n\n"
                     + getString(R.string.botdrop_reset_to_latest) + "?")
@@ -617,7 +617,7 @@ public class AgentSelectionFragment extends Fragment {
                 .setNegativeButton(R.string.botdrop_cancel, null)
                 .show();
         } else {
-            new AlertDialog.Builder(ctx)
+            BotDropDialogStyler.createBuilder(ctx)
                 .setTitle(R.string.botdrop_openclaw_version_manager_title)
                 .setMessage(getString(R.string.botdrop_pin_install_version, PINNED_VERSION))
                 .setPositiveButton(R.string.botdrop_pin, (d, w) -> {

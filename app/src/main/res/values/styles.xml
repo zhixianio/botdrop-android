@@ -6,7 +6,8 @@
         <item name="android:colorAccent">@color/botdrop_accent</item>
         <item name="android:textColorPrimary">@color/botdrop_on_background</item>
         <item name="android:textColorSecondary">@color/botdrop_secondary_text</item>
-        <item name="android:background">@color/botdrop_surface</item>
+        <item name="android:background">@drawable/botdrop_dialog_card_bg</item>
+        <item name="android:windowBackground">@drawable/botdrop_dialog_card_bg</item>
     </style>
 
     <style name="TermuxActivity.Drawer.ButtonBarStyle.Light" parent="@style/Widget.MaterialComponents.Button.TextButton">

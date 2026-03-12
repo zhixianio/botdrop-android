@@ -1,6 +1,7 @@
 package app.botdrop;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -27,7 +28,6 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
-import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 
 import com.termux.R;
@@ -439,31 +439,16 @@ public abstract class ChannelFormFragment extends Fragment {
             return;
         }
 
-        LinearLayout content = new LinearLayout(activity);
-        content.setOrientation(LinearLayout.HORIZONTAL);
-        int padding = (int) (16 * getResources().getDisplayMetrics().density);
-        content.setPadding(padding, padding, padding, padding);
+        LinearLayout content = BotDropDialogStyler.createInlineProgressContent(activity, messageRes);
+        mConnectProgressMessage = content.findViewById(android.R.id.message);
 
-        ProgressBar progressBar = new ProgressBar(activity);
-        LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        progressParams.rightMargin = (int) (16 * getResources().getDisplayMetrics().density);
-        content.addView(progressBar, progressParams);
-
-        mConnectProgressMessage = new TextView(activity);
-        mConnectProgressMessage.setText(messageRes);
-        mConnectProgressMessage.setTextSize(16f);
-        mConnectProgressMessage.setGravity(Gravity.CENTER_VERTICAL);
-        content.addView(mConnectProgressMessage);
-
-        mConnectProgressDialog = new AlertDialog.Builder(activity)
+        mConnectProgressDialog = BotDropDialogStyler.createBuilder(activity)
             .setCancelable(false)
             .setView(content)
             .create();
         mConnectProgressDialog.setCanceledOnTouchOutside(false);
         mConnectProgressDialog.show();
+        BotDropDialogStyler.applyTransparentCardWindow(mConnectProgressDialog);
     }
 
     private void ensureQqBotPluginInstalledBeforeConfigWrite(
@@ -820,7 +805,7 @@ public abstract class ChannelFormFragment extends Fragment {
         }
 
         String platformLabel = getString(mMeta.titleRes);
-        new AlertDialog.Builder(ctx)
+        BotDropDialogStyler.createBuilder(ctx)
             .setTitle(getString(R.string.botdrop_delete_channel_title, platformLabel))
             .setMessage(getString(R.string.botdrop_delete_channel_message, platformLabel))
             .setPositiveButton(R.string.botdrop_delete_channel_config, (dialog, which) -> deleteChannelConfig())
@@ -988,7 +973,7 @@ public abstract class ChannelFormFragment extends Fragment {
         if (ctx == null) {
             return;
         }
-        new AlertDialog.Builder(ctx)
+        BotDropDialogStyler.createBuilder(ctx)
             .setTitle(getString(R.string.botdrop_skip_channel_setup_title, platformLabel))
             .setMessage(getString(R.string.botdrop_skip_channel_setup_message, platformLabel))
             .setPositiveButton(R.string.botdrop_skip, (dialog, which) -> {

@@ -84,7 +84,7 @@ public final class StepProgressDialog {
             mCloseButton.setVisibility(View.GONE);
         }
 
-        mDialog = new AlertDialog.Builder(context)
+        mDialog = BotDropDialogStyler.createBuilder(context)
             .setTitle(titleRes)
             .setView(dialogView)
             .setCancelable(false)
@@ -103,6 +103,7 @@ public final class StepProgressDialog {
 
     public void show() {
         mDialog.show();
+        BotDropDialogStyler.applyTransparentCardWindow(mDialog);
     }
 
     public boolean isShowing() {

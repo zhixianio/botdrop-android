@@ -2686,7 +2686,7 @@ public class DashboardActivity extends Activity {
             mOpenclawVersionManagerDialog = null;
         }
 
-        mOpenclawVersionManagerDialog = new AlertDialog.Builder(this)
+        mOpenclawVersionManagerDialog = BotDropDialogStyler.createBuilder(this)
             .setTitle(getString(R.string.botdrop_openclaw_versions))
             .setMessage(getString(R.string.botdrop_loading_versions))
             .setCancelable(false)
@@ -2722,7 +2722,7 @@ public class DashboardActivity extends Activity {
             message = getString(R.string.botdrop_failed_to_load_version_list);
         }
 
-        mOpenclawVersionManagerDialog = new AlertDialog.Builder(this)
+        mOpenclawVersionManagerDialog = BotDropDialogStyler.createBuilder(this)
             .setTitle(getString(R.string.botdrop_openclaw_versions))
             .setMessage(message)
             .setNegativeButton(R.string.botdrop_close, (d, w) -> setOpenclawVersionManagerBusy(false))
@@ -2751,7 +2751,7 @@ public class DashboardActivity extends Activity {
             }
         }
 
-        mOpenclawVersionManagerDialog = new AlertDialog.Builder(this)
+        mOpenclawVersionManagerDialog = BotDropDialogStyler.createBuilder(this)
             .setTitle(getString(R.string.botdrop_openclaw_versions))
             .setItems(labels, (d, which) -> {
                 if (which < 0 || which >= normalized.size()) {
@@ -2774,7 +2774,7 @@ public class DashboardActivity extends Activity {
             return;
         }
 
-        mOpenclawVersionManagerDialog = new AlertDialog.Builder(this)
+        mOpenclawVersionManagerDialog = BotDropDialogStyler.createBuilder(this)
             .setTitle(getString(R.string.botdrop_install) + " " + getString(R.string.botdrop_openclaw))
             .setMessage(getString(R.string.botdrop_install_openclaw_confirm, installVersion))
             .setCancelable(false)
@@ -2926,7 +2926,7 @@ public class DashboardActivity extends Activity {
         dismissOpenclawUpdateDialog();
         final String updateVersion = latestVersion;
         final String analyticsSource = manualCheck ? "manual" : "auto";
-        mOpenclawUpdateDialog = new AlertDialog.Builder(this)
+        mOpenclawUpdateDialog = BotDropDialogStyler.createBuilder(this)
             .setTitle(getString(R.string.botdrop_update_available))
             .setMessage(content)
             .setCancelable(true)
@@ -3007,12 +3007,13 @@ public class DashboardActivity extends Activity {
         };
         TextView statusMessage = dialogView.findViewById(R.id.update_status_message);
 
-        AlertDialog progressDialog = new AlertDialog.Builder(this)
+        AlertDialog progressDialog = BotDropDialogStyler.createBuilder(this)
             .setTitle(R.string.botdrop_updating_openclaw)
             .setView(dialogView)
             .setCancelable(false)
             .create();
         progressDialog.show();
+        BotDropDialogStyler.applyTransparentCardWindow(progressDialog);
 
         // Disable control buttons during update
         mStartButton.setEnabled(false);
@@ -3055,7 +3056,7 @@ public class DashboardActivity extends Activity {
                 setOpenclawVersionManagerBusy(false);
                 refreshStatus();
                 if (canShowDialog()) {
-                    new AlertDialog.Builder(DashboardActivity.this)
+                    BotDropDialogStyler.createBuilder(DashboardActivity.this)
                         .setTitle(R.string.botdrop_update_failed)
                         .setMessage(error)
                         .setPositiveButton(android.R.string.ok, null)
