@@ -150,4 +150,14 @@
         android:textColor="@color/botdrop_secondary_text"
         android:layout_marginTop="8dp" />
 
+    <Button
+        android:id="@+id/update_error_close_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:padding="10dp"
+        android:visibility="gone"
+        android:text="@string/botdrop_close" />
+
 </LinearLayout>

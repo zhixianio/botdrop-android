@@ -20,7 +20,12 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.text.method.ScrollingMovementMethod;
+import android.view.LayoutInflater;
+import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
@@ -38,6 +43,7 @@ import com.termux.shared.android.PermissionUtils;
 import com.termux.shared.logger.Logger;
 import com.termux.shared.termux.TermuxConstants;
 import moe.shizuku.manager.MainActivity;
+import com.google.android.material.tabs.TabLayout;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -73,6 +79,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager2.widget.ViewPager2;
+
 /**
  * Dashboard activity - main screen after setup is complete.
  * Shows gateway status, connected channels, and control buttons.
@@ -88,12 +97,14 @@ public class DashboardActivity extends Activity {
     private static final String MODEL_PREFS_NAME = "openclaw_model_cache_v1";
     private static final String MODEL_CACHE_KEY_PREFIX = "models_by_version_";
     private static final int GATEWAY_LOG_TAIL_LINES = 300;
+    private static final long OPENCLAW_LOG_TAIL_POLL_INTERVAL_MS = 2500L;
     private static final int GATEWAY_DEBUG_LOG_TAIL_LINES = 120;
     private static final int OPENCLAW_WEB_UI_REACHABILITY_RETRY_COUNT = 8;
     private static final int OPENCLAW_WEB_UI_REACHABILITY_RETRY_DELAY_MS = 700;
     // Version management constants moved to OpenclawVersionUtils
     private static final String OPENCLAW_DASHBOARD_COMMAND = "openclaw dashboard --no-open 2>&1";
     private static final String OPENCLAW_GATEWAY_PRECHECK_COMMAND = "openclaw --version";
+    private static final int OPENCLAW_VERSION_FETCH_TIMEOUT_SECONDS = 180;
     private static final int OPENCLAW_DEFAULT_WEB_UI_PORT = 18789;
     private static final String OPENCLAW_DEFAULT_WEB_UI_PATH = "/";
     private static final String OPENCLAW_DEFAULT_WEB_UI_URL = "http://127.0.0.1:" + OPENCLAW_DEFAULT_WEB_UI_PORT + OPENCLAW_DEFAULT_WEB_UI_PATH;
@@ -102,6 +113,8 @@ public class DashboardActivity extends Activity {
     private static final String BOTDROP_HOME_FOLDER = "botdrop";
     private static final String GATEWAY_LOG_FILE = TermuxConstants.TERMUX_HOME_DIR_PATH + "/.openclaw/gateway.log";
     private static final String GATEWAY_DEBUG_LOG_FILE = TermuxConstants.TERMUX_HOME_DIR_PATH + "/.openclaw/gateway-debug.log";
+    private static final String GATEWAY_LOG_LABEL = "gateway.log";
+    private static final String GATEWAY_DEBUG_LOG_LABEL = "gateway-debug.log";
     private static final String OPENCLAW_BACKUP_DIRECTORY = "BotDrop/openclaw";
     private static final String OPENCLAW_BACKUP_FILE_PREFIX = "openclaw-config-backup-";
     private static final String OPENCLAW_BACKUP_FILE_EXTENSION = ".zip";
@@ -123,19 +136,13 @@ public class DashboardActivity extends Activity {
             Pattern.compile("(?i)\\b(127\\.0\\.0\\.1|localhost|0\\.0\\.0\\.0|\\[[0-9a-f:]+\\]|[a-z0-9._-]+):(\\d{2,5})\\b");
     private static final Pattern GATEWAY_TOKEN_QUERY_PATTERN =
             Pattern.compile("(?i)token=([^\\s\"'`<>\\)\\]}&]+)");
-    private static final String VIEW_OPENCLAW_LOG_COMMAND =
-            "if [ -f " + GATEWAY_LOG_FILE + " ]; then\n" +
-            "  echo '=== OpenClaw gateway.log (tail " + GATEWAY_LOG_TAIL_LINES + " lines) ===';\n" +
-            "  tail -n " + GATEWAY_LOG_TAIL_LINES + " " + GATEWAY_LOG_FILE + "\n" +
-            "else\n" +
-            "  echo 'No gateway.log at " + GATEWAY_LOG_FILE + "'\n" +
-            "fi\n" +
-            "if [ -f " + GATEWAY_DEBUG_LOG_FILE + " ]; then\n" +
-            "  echo '\\n=== OpenClaw gateway-debug.log (tail " + GATEWAY_DEBUG_LOG_TAIL_LINES + " lines) ===';\n" +
-            "  tail -n " + GATEWAY_DEBUG_LOG_TAIL_LINES + " " + GATEWAY_DEBUG_LOG_FILE + "\n" +
-            "else\n" +
-            "  echo '\\nNo gateway-debug.log at " + GATEWAY_DEBUG_LOG_FILE + "'\n" +
-            "fi\n";
+    private static String getOpenclawLogTailCommand(String logFile, int tailLines) {
+        return "if [ -f " + logFile + " ]; then\n" +
+                "  tail -n " + tailLines + " " + logFile + "\n" +
+                "else\n" +
+                "  echo 'No log file at " + logFile + "'\n" +
+                "fi\n";
+    }
 
     private TextView mStatusText;
     private TextView mUptimeText;
@@ -143,9 +150,11 @@ public class DashboardActivity extends Activity {
     private TextView mTelegramStatus;
     private TextView mDiscordStatus;
     private TextView mFeishuStatus;
+    private TextView mQQBotStatus;
     private View mTelegramChannelRow;
     private View mDiscordChannelRow;
     private View mFeishuChannelRow;
+    private View mQQBotChannelRow;
     private Button mStartButton;
     private Button mStopButton;
     private Button mRestartButton;
@@ -180,6 +189,7 @@ public class DashboardActivity extends Activity {
     private String mLastErrorMessage;
     private Runnable mPendingOpenclawStorageAction;
     private Runnable mPendingOpenclawStorageDeniedAction;
+    private OnBackInvokedCallback mOnBackInvokedCallback;
     private interface ModelListPrefetchCallback {
         void onFinished(boolean success);
     }
@@ -236,9 +246,11 @@ public class DashboardActivity extends Activity {
         mTelegramStatus = findViewById(R.id.telegram_status);
         mDiscordStatus = findViewById(R.id.discord_status);
         mFeishuStatus = findViewById(R.id.feishu_status);
+        mQQBotStatus = findViewById(R.id.qqbot_status);
         mTelegramChannelRow = findViewById(R.id.telegram_channel_row);
         mDiscordChannelRow = findViewById(R.id.discord_channel_row);
         mFeishuChannelRow = findViewById(R.id.feishu_channel_row);
+        mQQBotChannelRow = findViewById(R.id.qqbot_channel_row);
         mStartButton = findViewById(R.id.btn_start);
         mStopButton = findViewById(R.id.btn_stop);
         mRestartButton = findViewById(R.id.btn_restart);
@@ -352,6 +364,11 @@ public class DashboardActivity extends Activity {
                 }
             );
         }
+        if (mQQBotChannelRow != null) {
+            mQQBotChannelRow.setOnClickListener(
+                v -> openChannelConfig(ChannelConfigMeta.PLATFORM_QQBOT)
+            );
+        }
 
         // Load channel info
         loadChannelInfo();
@@ -383,13 +400,26 @@ public class DashboardActivity extends Activity {
         if (stored != null) {
             showUpdateBanner(stored[0], stored[1]);
         }
+        registerBackInvokedCallback();
 
+    }
+
+    private void registerBackInvokedCallback() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+
+        mOnBackInvokedCallback = () -> openAgentSelection();
+        getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+            OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+            mOnBackInvokedCallback
+        );
     }
 
     private void openAgentSelection() {
         Intent intent = new Intent(this, SetupActivity.class);
         intent.putExtra(SetupActivity.EXTRA_START_STEP, SetupActivity.STEP_AGENT_SELECT);
-        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
     }
@@ -413,6 +443,11 @@ public class DashboardActivity extends Activity {
             unbindService(mConnection);
             mBound = false;
         }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && mOnBackInvokedCallback != null) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(mOnBackInvokedCallback);
+            mOnBackInvokedCallback = null;
+        }
     }
 
     @Override
@@ -435,6 +470,27 @@ public class DashboardActivity extends Activity {
             refreshStatus();
         }
         loadChannelInfo();
+    }
+
+    /**
+     * Check whether it is safe to show a dialog on this Activity.
+     */
+    private boolean canShowDialog() {
+        return !isFinishing() && !isDestroyed();
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            openAgentSelection();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public void onBackPressed() {
+        openAgentSelection();
     }
 
     @Override
@@ -588,6 +644,7 @@ public class DashboardActivity extends Activity {
     }
 
     private void confirmOpenclawRestore(File backupFile) {
+        if (!canShowDialog()) return;
         String createdAtText = formatBackupTimestamp(readBackupCreatedAt(backupFile));
         String message = getString(
             R.string.botdrop_restore_openclaw_data_message,
@@ -1359,6 +1416,10 @@ public class DashboardActivity extends Activity {
             mFeishuStatus.setText("○ —");
             mFeishuStatus.setTextColor(ContextCompat.getColor(this, R.color.status_disconnected));
         }
+        if (mQQBotStatus != null) {
+            mQQBotStatus.setText("○ —");
+            mQQBotStatus.setTextColor(ContextCompat.getColor(this, R.color.status_disconnected));
+        }
 
         try {
             JSONObject config = BotDropConfig.readConfig();
@@ -1380,6 +1441,11 @@ public class DashboardActivity extends Activity {
             if (ChannelSetupHelper.isFeishuConfigured(channels.optJSONObject("feishu")) && mFeishuStatus != null) {
                 mFeishuStatus.setText(getString(R.string.botdrop_connected));
                 mFeishuStatus.setTextColor(ContextCompat.getColor(this, R.color.status_connected));
+            }
+
+            if (ChannelSetupHelper.isQQBotConfigured(channels.optJSONObject("qqbot")) && mQQBotStatus != null) {
+                mQQBotStatus.setText(getString(R.string.botdrop_connected));
+                mQQBotStatus.setTextColor(ContextCompat.getColor(this, R.color.status_connected));
             }
         } catch (Exception e) {
             Logger.logError(LOG_TAG, "Failed to load channel info: " + e.getMessage());
@@ -1621,7 +1687,7 @@ public class DashboardActivity extends Activity {
             if (reachable || attempt >= OPENCLAW_WEB_UI_REACHABILITY_RETRY_COUNT) {
                 runOnUiThread(() -> {
                     mOpenclawWebUiOpening = false;
-                    if (!isFinishing()) {
+                    if (canShowDialog()) {
                         if (!mUiVisible) {
                             return;
                         }
@@ -2397,15 +2463,168 @@ public class DashboardActivity extends Activity {
             mOpenclawLogButton.setEnabled(false);
         }
 
-        mBotDropService.executeCommand(VIEW_OPENCLAW_LOG_COMMAND, result -> {
+        View logDialogView = getLayoutInflater().inflate(R.layout.dialog_openclaw_log, null);
+        TabLayout logTabLayout = logDialogView.findViewById(R.id.openclaw_log_tabs);
+        ViewPager2 logViewPager = logDialogView.findViewById(R.id.openclaw_log_viewpager);
+        Button copyButton = logDialogView.findViewById(R.id.openclaw_log_copy_button);
+        Button closeButton = logDialogView.findViewById(R.id.openclaw_log_close_button);
+
+        if (logTabLayout == null || logViewPager == null) {
+            Toast.makeText(this, getString(R.string.botdrop_failed_to_read_openclaw_logs), Toast.LENGTH_SHORT).show();
             if (mOpenclawLogButton != null) {
                 mOpenclawLogButton.setEnabled(true);
             }
+            return;
+        }
 
-            String logText = result != null ? result.stdout : null;
-            if (result == null) {
-                logText = getString(R.string.botdrop_failed_to_read_openclaw_logs);
-            } else if (!result.success) {
+        final String[] logContents = {
+            "Loading " + GATEWAY_LOG_LABEL + "...",
+            "Loading " + GATEWAY_DEBUG_LOG_LABEL + "..."
+        };
+        final String noLogOutputText = getString(R.string.botdrop_no_log_output_available);
+
+        RecyclerView.Adapter<OpenclawLogPageViewHolder> pagerAdapter = new RecyclerView.Adapter<OpenclawLogPageViewHolder>() {
+            @NonNull
+            @Override
+            public OpenclawLogPageViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+                View itemView = LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.item_openclaw_log_page, parent, false);
+                OpenclawLogPageViewHolder holder = new OpenclawLogPageViewHolder(itemView);
+                return holder;
+            }
+
+            @Override
+            public void onBindViewHolder(@NonNull OpenclawLogPageViewHolder holder, int position) {
+                String text = logContents[position];
+                if (TextUtils.isEmpty(text)) {
+                    text = noLogOutputText;
+                }
+                holder.bind(text);
+            }
+
+            @Override
+            public int getItemCount() {
+                return logContents.length;
+            }
+        };
+
+        logViewPager.setAdapter(pagerAdapter);
+        logViewPager.setOffscreenPageLimit(1);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+            .setView(logDialogView)
+            .create();
+
+        final boolean[] isLogDialogOpen = {true};
+        final int[] pollBatchPending = {0};
+        final int[] remainingFirstLoadCallbacks = {2};
+        Runnable refreshLogs = new Runnable() {
+            @Override
+            public void run() {
+                if (!isLogDialogOpen[0] || mBotDropService == null) {
+                    return;
+                }
+
+                pollBatchPending[0] = 2;
+
+                Runnable onPollCompleted = () -> {
+                    int remaining = --pollBatchPending[0];
+                    if (remainingFirstLoadCallbacks[0] > 0) {
+                        int firstLoadRemaining = --remainingFirstLoadCallbacks[0];
+                        if (firstLoadRemaining <= 0 && mOpenclawLogButton != null) {
+                            mOpenclawLogButton.setEnabled(true);
+                        }
+                    }
+                    if (remaining <= 0) {
+                        if (isLogDialogOpen[0] && !isFinishing()) {
+                            mHandler.postDelayed(this, OPENCLAW_LOG_TAIL_POLL_INTERVAL_MS);
+                        }
+                    }
+                };
+
+                mBotDropService.executeCommand(getOpenclawLogTailCommand(GATEWAY_LOG_FILE, GATEWAY_LOG_TAIL_LINES), result -> {
+                    if (isFinishing() || !isLogDialogOpen[0]) {
+                        onPollCompleted.run();
+                        return;
+                    }
+                    String logText = getFormattedLogResult(result, GATEWAY_LOG_LABEL);
+                    logContents[0] = logText;
+                    pagerAdapter.notifyItemChanged(0);
+                    onPollCompleted.run();
+                });
+
+                mBotDropService.executeCommand(getOpenclawLogTailCommand(GATEWAY_DEBUG_LOG_FILE, GATEWAY_DEBUG_LOG_TAIL_LINES), result -> {
+                    if (isFinishing() || !isLogDialogOpen[0]) {
+                        onPollCompleted.run();
+                        return;
+                    }
+                    String logText = getFormattedLogResult(result, GATEWAY_DEBUG_LOG_LABEL);
+                    logContents[1] = logText;
+                    pagerAdapter.notifyItemChanged(1);
+                    onPollCompleted.run();
+                });
+            }
+        };
+
+        refreshLogs.run();
+
+        new com.google.android.material.tabs.TabLayoutMediator(logTabLayout, logViewPager, (tab, position) -> {
+            if (position == 0) {
+                tab.setText(GATEWAY_LOG_LABEL);
+            } else {
+                tab.setText(GATEWAY_DEBUG_LOG_LABEL);
+            }
+        }).attach();
+
+        copyButton.setOnClickListener(v -> {
+            int currentItem = logViewPager.getCurrentItem();
+            String copyTarget = noLogOutputText;
+            if (currentItem >= 0 && currentItem < logContents.length) {
+                copyTarget = logContents[currentItem];
+            }
+            if (TextUtils.isEmpty(copyTarget)) {
+                copyTarget = noLogOutputText;
+            }
+            copyToClipboard(copyTarget);
+        });
+
+        closeButton.setOnClickListener(v -> dialog.dismiss());
+        dialog.setOnDismissListener(d -> {
+            isLogDialogOpen[0] = false;
+            mHandler.removeCallbacks(refreshLogs);
+            if (mOpenclawLogButton != null) {
+                mOpenclawLogButton.setEnabled(true);
+            }
+        });
+
+        dialog.show();
+    }
+
+    private static class OpenclawLogPageViewHolder extends RecyclerView.ViewHolder {
+        private final TextView mLogTextView;
+
+        OpenclawLogPageViewHolder(@NonNull View itemView) {
+            super(itemView);
+            mLogTextView = itemView.findViewById(R.id.openclaw_log_page_text);
+            if (mLogTextView != null) {
+                mLogTextView.setMovementMethod(ScrollingMovementMethod.getInstance());
+            }
+        }
+
+        void bind(String text) {
+            if (mLogTextView != null) {
+                mLogTextView.setText(text == null ? "" : text);
+            }
+        }
+    }
+
+    private String getFormattedLogResult(@Nullable BotDropService.CommandResult result, String logLabel) {
+        String logText = null;
+        if (result == null) {
+            logText = getString(R.string.botdrop_failed_to_read_openclaw_logs);
+        }
+        if (logText == null) {
+            if (!result.success) {
                 StringBuilder fallback = new StringBuilder();
                 if (!TextUtils.isEmpty(result.stderr)) {
                     fallback.append(result.stderr.trim());
@@ -2420,29 +2639,18 @@ public class DashboardActivity extends Activity {
                 if (TextUtils.isEmpty(logText)) {
                     logText = getString(R.string.botdrop_failed_to_read_openclaw_logs_exit_code, result.exitCode);
                 }
+            } else {
+                logText = result.stdout;
             }
-
             if (TextUtils.isEmpty(logText)) {
-                logText = getString(R.string.botdrop_no_log_output_available);
+                logText = getString(R.string.botdrop_failed_to_read_openclaw_logs_exit_code, result.exitCode);
             }
+        }
 
-            final String finalLogText = logText;
-            View logDialogView = getLayoutInflater().inflate(R.layout.dialog_openclaw_log, null);
-            TextView logView = logDialogView.findViewById(R.id.openclaw_log_text);
-            logView.setText(finalLogText);
-            logView.setMovementMethod(ScrollingMovementMethod.getInstance());
-
-            Button copyButton = logDialogView.findViewById(R.id.openclaw_log_copy_button);
-            Button closeButton = logDialogView.findViewById(R.id.openclaw_log_close_button);
-
-            AlertDialog dialog = new AlertDialog.Builder(this)
-                .setView(logDialogView)
-                .create();
-
-            copyButton.setOnClickListener(v -> copyToClipboard(finalLogText));
-            closeButton.setOnClickListener(v -> dialog.dismiss());
-            dialog.show();
-        });
+        if (TextUtils.isEmpty(logText)) {
+            logText = getString(R.string.botdrop_no_log_output_available);
+        }
+        return logLabel + "\n" + logText;
     }
 
     private void copyToClipboard(String content) {
@@ -2506,6 +2714,7 @@ public class DashboardActivity extends Activity {
     }
 
     private void showOpenclawVersionManagerErrorDialog(String message) {
+        if (!canShowDialog()) return;
         if (TextUtils.isEmpty(message)) {
             message = getString(R.string.botdrop_failed_to_load_version_list);
         }
@@ -2521,15 +2730,22 @@ public class DashboardActivity extends Activity {
     }
 
     private void showOpenclawVersionListDialog(List<String> versions) {
+        if (!canShowDialog()) return;
         final List<String> normalized = OpenclawVersionUtils.normalizeVersionList(versions);
         if (normalized.isEmpty()) {
             showOpenclawVersionManagerErrorDialog(getString(R.string.botdrop_no_valid_versions_found));
             return;
         }
 
+        String currentVersion = OpenclawVersionUtils.normalizeForSort(BotDropService.getOpenclawVersion());
         String[] labels = new String[normalized.size()];
         for (int i = 0; i < normalized.size(); i++) {
-            labels[i] = OpenclawVersionUtils.VERSION_PREFIX + normalized.get(i);
+            String v = normalized.get(i);
+            if (!TextUtils.isEmpty(currentVersion) && TextUtils.equals(currentVersion, v)) {
+                labels[i] = getString(R.string.botdrop_openclaw_current_version, v);
+            } else {
+                labels[i] = getString(R.string.botdrop_openclaw_version, v);
+            }
         }
 
         mOpenclawVersionManagerDialog = new AlertDialog.Builder(this)
@@ -2547,6 +2763,7 @@ public class DashboardActivity extends Activity {
     }
 
     private void showOpenclawVersionInstallConfirm(String version) {
+        if (!canShowDialog()) return;
         String installVersion = OpenclawVersionUtils.normalizeInstallVersion(version);
         if (TextUtils.isEmpty(installVersion)) {
             setOpenclawVersionManagerBusy(false);
@@ -2574,7 +2791,10 @@ public class DashboardActivity extends Activity {
         }
         String currentVersion = BotDropService.getOpenclawVersion();
 
-        mBotDropService.executeCommand(OpenclawVersionUtils.VERSIONS_COMMAND, result -> {
+        mBotDropService.executeCommand(
+            OpenclawVersionUtils.VERSIONS_COMMAND,
+            OPENCLAW_VERSION_FETCH_TIMEOUT_SECONDS,
+            result -> {
             if (result == null || !result.success) {
                 String fallbackError = result == null
                     ? getString(R.string.botdrop_failed_to_fetch_versions)
@@ -2589,7 +2809,7 @@ public class DashboardActivity extends Activity {
                 return;
             }
             cb.onResult(versions, null);
-        });
+            });
     }
 
     private void setOpenclawVersionManagerBusy(boolean isBusy) {
@@ -2786,28 +3006,17 @@ public class DashboardActivity extends Activity {
         mStopButton.setEnabled(false);
         mRestartButton.setEnabled(false);
 
-        // Map step messages to step indices
-        final String[] stepMessages = {
-            getString(R.string.botdrop_stopping_gateway) + "...",
-            getString(R.string.botdrop_installing_update) + "...",
-            getString(R.string.botdrop_finalizing) + "...",
-            getString(R.string.botdrop_starting_gateway) + "...",
-            getString(R.string.botdrop_refreshing_model_list) + "...",
-        };
-
         mBotDropService.updateOpenclaw(targetVersion,
             new BotDropService.UpdateProgressCallback() {
             private int currentStep = -1;
 
             private void advanceTo(String message) {
-                // Find which step this message belongs to
-                int nextStep = -1;
-                for (int i = 0; i < stepMessages.length; i++) {
-                    if (stepMessages[i].equals(message)) {
-                        nextStep = i;
-                        break;
-                    }
-                }
+                int nextStep = OpenclawUpdateProgress.resolveStepFromMessage(message);
+                if (nextStep < 0) return;
+                advanceToStep(nextStep);
+            }
+
+            private void advanceToStep(int nextStep) {
                 if (nextStep < 0) return;
 
                 // Mark all previous steps as complete
@@ -2831,18 +3040,20 @@ public class DashboardActivity extends Activity {
                 progressDialog.dismiss();
                 setOpenclawVersionManagerBusy(false);
                 refreshStatus();
-                new AlertDialog.Builder(DashboardActivity.this)
-                    .setTitle(R.string.botdrop_update_failed)
-                    .setMessage(error)
-                    .setPositiveButton(android.R.string.ok, null)
-                    .show();
+                if (canShowDialog()) {
+                    new AlertDialog.Builder(DashboardActivity.this)
+                        .setTitle(R.string.botdrop_update_failed)
+                        .setMessage(error)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show();
+                }
                 checkOpenclawUpdate();
             }
 
             @Override
             public void onComplete(String newVersion) {
                 mOpenclawLatestUpdateVersion = null;
-                advanceTo(stepMessages[4]);
+                advanceToStep(OpenclawUpdateProgress.STEP_REFRESHING_MODELS);
                 statusMessage.setText(getString(R.string.botdrop_updated_to_version_refreshing, newVersion));
                 prefetchModelsForUpdate(newVersion, success -> {
                     // Mark all steps complete
@@ -2857,7 +3068,7 @@ public class DashboardActivity extends Activity {
 
                     // Auto-dismiss after 1.5s
                     mHandler.postDelayed(() -> {
-                        if (!isFinishing()) {
+                        if (canShowDialog()) {
                             progressDialog.dismiss();
                         }
                         setOpenclawVersionManagerBusy(false);

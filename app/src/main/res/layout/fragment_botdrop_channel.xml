@@ -28,9 +28,13 @@
         android:id="@+id/channel_tabs"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        app:tabMode="scrollable"
+        app:tabGravity="center"
+        app:tabIndicatorFullWidth="false"
         app:tabIndicatorColor="@color/botdrop_accent"
         app:tabSelectedTextColor="@color/botdrop_on_background"
         app:tabTextColor="@color/botdrop_secondary_text"
+        app:tabTextAppearance="@style/BotDropChannelTabText"
         android:background="@drawable/botdrop_card_bg" />
 
     <androidx.viewpager2.widget.ViewPager2

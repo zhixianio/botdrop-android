@@ -7,19 +7,25 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.IBinder;
+import android.graphics.Paint;
 import android.text.Html;
 import android.text.TextUtils;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 
@@ -31,16 +37,25 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.Iterator;
+import java.util.regex.Pattern;
 
 /**
- * Base class for channel configuration pages (Telegram/Discord/Feishu).
+ * Base class for channel configuration pages (Telegram/Discord/Feishu/QQ Bot).
  */
 public abstract class ChannelFormFragment extends Fragment {
 
     private static final String LOG_TAG = "ChannelFormFragment";
+    private static final String QQBOT_PLUGIN_IDENTIFIER = "sliverp/qqbot";
+    private static final String QQBOT_PLUGIN_ID_FALLBACK = "qqbot";
+    private static final String QQBOT_PLUGIN_ENTRY_ID = "qqbot";
+    private static final String QQBOT_PLUGIN_INSTALL_COMMAND = "openclaw plugins install @sliverp/qqbot@latest";
+    private static final int QQBOT_PLUGIN_LIST_TIMEOUT_SECONDS = 120;
+    private static final int QQBOT_PLUGIN_INSTALL_TIMEOUT_SECONDS = 300;
+    private static final long CONNECT_PENDING_DIALOG_DELAY_MS = 0L;
+    private static final int CONNECT_SUCCESS_HOLD_MS = 180;
 
     private ChannelConfigMeta mMeta;
-    private Button mOpenSetupBotButton;
+    private TextView mOpenSetupBotButton;
     private TextView mTokenLabel;
     private EditText mTokenInput;
     private TextView mOwnerLabel;
@@ -54,9 +69,14 @@ public abstract class ChannelFormFragment extends Fragment {
     private TextView mDiscordGuildLabel;
     private EditText mDiscordGuildInput;
     private Button mConnectButton;
+    private Button mDeleteButton;
     private Button mSkipButton;
     private TextView mErrorMessage;
     private TextView mSetupHelpText;
+    private AlertDialog mConnectProgressDialog;
+    private TextView mConnectProgressMessage;
+    private final Handler mUiHandler = new Handler(Looper.getMainLooper());
+    private Runnable mShowConnectProgressRunnable;
 
     private BotDropService mService;
     private boolean mBound;
@@ -100,6 +120,7 @@ public abstract class ChannelFormFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         mOpenSetupBotButton = view.findViewById(R.id.channel_open_setup_bot);
+        mOpenSetupBotButton.setPaintFlags(mOpenSetupBotButton.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
         mTokenLabel = view.findViewById(R.id.channel_token_label);
         mTokenInput = view.findViewById(R.id.channel_token_input);
         mOwnerLabel = view.findViewById(R.id.channel_owner_label);
@@ -113,6 +134,7 @@ public abstract class ChannelFormFragment extends Fragment {
         mDiscordGuildLabel = view.findViewById(R.id.channel_discord_guild_id_label);
         mDiscordGuildInput = view.findViewById(R.id.channel_discord_guild_id_input);
         mConnectButton = view.findViewById(R.id.channel_connect_button);
+        mDeleteButton = view.findViewById(R.id.channel_delete_button);
         mSkipButton = view.findViewById(R.id.channel_skip_button);
         mErrorMessage = view.findViewById(R.id.channel_error_message);
         mSetupHelpText = view.findViewById(R.id.channel_setup_help_text);
@@ -182,7 +204,7 @@ public abstract class ChannelFormFragment extends Fragment {
         mOpenSetupBotButton.setOnClickListener(v -> openSetupBot());
         mConnectButton.setOnClickListener(v -> connect());
         preloadExistingConfig();
-        configureSkipAction();
+        configureActionButtons();
 
         Logger.logDebug(LOG_TAG, "ChannelFormFragment view created for " + (mMeta == null ? "unknown" : mMeta.platform));
     }
@@ -219,6 +241,12 @@ public abstract class ChannelFormFragment extends Fragment {
         }
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        hideConnectPendingProgress();
+    }
+
     private void openSetupBot() {
         if (mMeta == null || TextUtils.isEmpty(mMeta.setupBotUrl)) {
             return;
@@ -249,6 +277,8 @@ public abstract class ChannelFormFragment extends Fragment {
                 showError(getString(R.string.botdrop_error_enter_valid_bot_token));
             } else if (ChannelConfigMeta.PLATFORM_FEISHU.equals(mMeta.platform)) {
                 showError(getString(R.string.botdrop_error_enter_app_id));
+            } else if (ChannelConfigMeta.PLATFORM_QQBOT.equals(mMeta.platform)) {
+                showError(getString(R.string.botdrop_error_enter_qqbot_app_id));
             } else {
                 showError(getString(R.string.botdrop_error_enter_token));
             }
@@ -259,6 +289,8 @@ public abstract class ChannelFormFragment extends Fragment {
             AnalyticsManager.logEvent(requireContext(), "channel_connect_invalid", "reason", "invalid_owner");
             if (ChannelConfigMeta.PLATFORM_FEISHU.equals(mMeta.platform)) {
                 showError(getString(R.string.botdrop_error_enter_app_secret));
+            } else if (ChannelConfigMeta.PLATFORM_QQBOT.equals(mMeta.platform)) {
+                showError(getString(R.string.botdrop_error_enter_qqbot_app_secret));
             } else {
                 showError(getString(R.string.botdrop_error_enter_owner_id));
             }
@@ -277,9 +309,25 @@ public abstract class ChannelFormFragment extends Fragment {
         if (context != null) {
             AnalyticsManager.logEvent(context, "channel_connect_tap", "platform", mMeta.platform);
         }
-
-        mConnectButton.setEnabled(false);
         mConnectButton.setText(R.string.botdrop_connecting);
+        setActionButtonsEnabled(false);
+        showConnectPendingProgressWithMessage(R.string.botdrop_progress_connecting_channel);
+
+        if (ChannelConfigMeta.PLATFORM_QQBOT.equals(mMeta.platform)) {
+            ensureQqBotPluginInstalledBeforeConfigWrite(token, ownerId, feishuUserId, guildId);
+            return;
+        }
+
+        writeConfigAndStartGateway(token, ownerId, feishuUserId, guildId);
+    }
+
+    private void writeConfigAndStartGateway(
+        String token,
+        String ownerId,
+        String feishuUserId,
+        String guildId
+    ) {
+        showConnectPendingProgressWithMessage(R.string.botdrop_progress_writing_channel_config);
 
         boolean success;
         if (ChannelConfigMeta.PLATFORM_DISCORD.equals(mMeta.platform)) {
@@ -296,6 +344,8 @@ public abstract class ChannelFormFragment extends Fragment {
                 ownerId,
                 feishuUserId
             );
+        } else if (ChannelConfigMeta.PLATFORM_QQBOT.equals(mMeta.platform)) {
+            success = ChannelSetupHelper.writeQQBotChannelConfig(token, ownerId);
         } else {
             success = ChannelSetupHelper.writeChannelConfig(
                 mMeta.platform,
@@ -332,8 +382,225 @@ public abstract class ChannelFormFragment extends Fragment {
                 Logger.logError(LOG_TAG, "Failed to save template: " + e.getMessage());
             }
         }
-
         startGateway();
+    }
+
+    private void showConnectPendingProgressWithMessage(@StringRes int messageRes) {
+        if (!isAdded() || getActivity() == null || getActivity().isFinishing()) {
+            return;
+        }
+
+        if (mConnectProgressDialog != null && mConnectProgressDialog.isShowing()) {
+            if (mConnectProgressMessage != null) {
+                mConnectProgressMessage.setText(messageRes);
+            }
+            return;
+        }
+
+        if (mShowConnectProgressRunnable != null) {
+            mUiHandler.removeCallbacks(mShowConnectProgressRunnable);
+            mShowConnectProgressRunnable = null;
+        }
+
+        mShowConnectProgressRunnable = () -> {
+            if (!isAdded() || getActivity() == null || getActivity().isFinishing()) {
+                return;
+            }
+            showConnectProgressDialog(messageRes);
+        };
+        mUiHandler.postDelayed(mShowConnectProgressRunnable, CONNECT_PENDING_DIALOG_DELAY_MS);
+    }
+
+    private void hideConnectPendingProgress() {
+        if (mShowConnectProgressRunnable != null) {
+            mUiHandler.removeCallbacks(mShowConnectProgressRunnable);
+            mShowConnectProgressRunnable = null;
+        }
+        if (mConnectProgressDialog != null) {
+            if (mConnectProgressDialog.isShowing()) {
+                mConnectProgressDialog.dismiss();
+            }
+            mConnectProgressDialog = null;
+        }
+        mConnectProgressMessage = null;
+    }
+
+    private void showConnectProgressDialog(@StringRes int messageRes) {
+        if (mConnectProgressDialog != null && mConnectProgressDialog.isShowing()) {
+            if (mConnectProgressMessage != null) {
+                mConnectProgressMessage.setText(messageRes);
+            }
+            return;
+        }
+        Activity activity = getActivity();
+        if (!isAdded() || activity == null || activity.isFinishing()) {
+            return;
+        }
+
+        LinearLayout content = new LinearLayout(activity);
+        content.setOrientation(LinearLayout.HORIZONTAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        content.setPadding(padding, padding, padding, padding);
+
+        ProgressBar progressBar = new ProgressBar(activity);
+        LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        progressParams.rightMargin = (int) (16 * getResources().getDisplayMetrics().density);
+        content.addView(progressBar, progressParams);
+
+        mConnectProgressMessage = new TextView(activity);
+        mConnectProgressMessage.setText(messageRes);
+        mConnectProgressMessage.setTextSize(16f);
+        mConnectProgressMessage.setGravity(Gravity.CENTER_VERTICAL);
+        content.addView(mConnectProgressMessage);
+
+        mConnectProgressDialog = new AlertDialog.Builder(activity)
+            .setCancelable(false)
+            .setView(content)
+            .create();
+        mConnectProgressDialog.setCanceledOnTouchOutside(false);
+        mConnectProgressDialog.show();
+    }
+
+    private void ensureQqBotPluginInstalledBeforeConfigWrite(
+        String token,
+        String ownerId,
+        String feishuUserId,
+        String guildId
+    ) {
+        if (!mBound || mService == null) {
+            showError(getString(R.string.botdrop_service_not_ready));
+            hideConnectPendingProgress();
+            resetButton();
+            return;
+        }
+
+        showConnectPendingProgressWithMessage(R.string.botdrop_progress_checking_qqbot_plugin);
+
+        if (isQqBotPluginConfiguredInLocalConfig()) {
+            Logger.logInfo(LOG_TAG, "QQ Bot plugin entry already exists in local config");
+            showConnectPendingProgressWithMessage(R.string.botdrop_starting_gateway);
+            writeConfigAndStartGateway(token, ownerId, feishuUserId, guildId);
+            return;
+        }
+
+        mService.executeCommand("openclaw plugins list", QQBOT_PLUGIN_LIST_TIMEOUT_SECONDS, listResult -> {
+            if (!isAdded() || getActivity() == null || getActivity().isFinishing()) {
+                hideConnectPendingProgress();
+                return;
+            }
+
+            if (isQqBotPluginInstalled(listResult) || isQqBotPluginConfiguredInLocalConfig()) {
+                Logger.logInfo(LOG_TAG, "QQ Bot plugin already installed, start gateway directly");
+                showConnectPendingProgressWithMessage(R.string.botdrop_starting_gateway);
+                writeConfigAndStartGateway(token, ownerId, feishuUserId, guildId);
+                return;
+            }
+
+            showConnectPendingProgressWithMessage(R.string.botdrop_progress_installing_qqbot_plugin);
+
+            mService.executeCommand(QQBOT_PLUGIN_INSTALL_COMMAND, QQBOT_PLUGIN_INSTALL_TIMEOUT_SECONDS, installResult -> {
+                if (!isAdded() || getActivity() == null || getActivity().isFinishing()) {
+                    hideConnectPendingProgress();
+                    return;
+                }
+
+                if (installResult.success || isQqBotPluginInstallNoop(installResult)) {
+                    Logger.logInfo(LOG_TAG, "QQ Bot plugin installation completed");
+                    showConnectPendingProgressWithMessage(R.string.botdrop_starting_gateway);
+                    writeConfigAndStartGateway(token, ownerId, feishuUserId, guildId);
+                    return;
+                }
+
+                Logger.logError(LOG_TAG, "Failed to install QQ Bot plugin: " + installResult.stderr);
+                String errorMsg = installResult.stderr;
+                if (TextUtils.isEmpty(errorMsg)) {
+                    errorMsg = installResult.stdout;
+                }
+                if (TextUtils.isEmpty(errorMsg)) {
+                    errorMsg = getString(R.string.botdrop_unknown_error_exit_code, installResult.exitCode);
+                }
+                hideConnectPendingProgress();
+                showError(getString(R.string.botdrop_install_failed, errorMsg));
+                resetButton();
+            });
+        });
+    }
+
+    private boolean isQqBotPluginInstalled(BotDropService.CommandResult result) {
+        if (result == null) {
+            return false;
+        }
+
+        return isQqBotPluginInstalled(result.stdout)
+            || isQqBotPluginInstalled(result.stderr);
+    }
+
+    private boolean isQqBotPluginConfiguredInLocalConfig() {
+        try {
+            JSONObject config = BotDropConfig.readConfig();
+            JSONObject plugins = config.optJSONObject("plugins");
+            if (plugins == null) {
+                return false;
+            }
+            JSONObject entries = plugins.optJSONObject("entries");
+            if (entries == null) {
+                return false;
+            }
+
+            Object pluginEntry = entries.opt(QQBOT_PLUGIN_ENTRY_ID);
+            if (pluginEntry instanceof JSONObject) {
+                JSONObject pluginObj = (JSONObject) pluginEntry;
+                return pluginObj.optBoolean("enabled", true);
+            }
+            if (pluginEntry instanceof Boolean) {
+                return (Boolean) pluginEntry;
+            }
+        } catch (Exception e) {
+            Logger.logWarn(LOG_TAG, "Failed to read QQ plugin entry from local config: " + e.getMessage());
+        }
+        return false;
+    }
+
+    private boolean isQqBotPluginInstalled(String output) {
+        if (TextUtils.isEmpty(output)) {
+            return false;
+        }
+
+        String lower = output.toLowerCase(java.util.Locale.ROOT);
+        return lower.contains(QQBOT_PLUGIN_IDENTIFIER)
+            || hasStandalonePluginIdentifier(lower, QQBOT_PLUGIN_ID_FALLBACK);
+    }
+
+    private boolean hasStandalonePluginIdentifier(String output, String token) {
+        String escaped = Pattern.quote(token);
+        String boundaryPattern = "(^|[^a-z0-9_./-])" + escaped + "(?=[^a-z0-9_./-]|$)";
+        return java.util.regex.Pattern.compile(boundaryPattern).matcher(output).find();
+    }
+
+    private boolean isQqBotPluginInstallNoop(BotDropService.CommandResult result) {
+        if (result == null) {
+            return false;
+        }
+
+        return isQqBotPluginInstallNoop(result.stdout)
+            || isQqBotPluginInstallNoop(result.stderr);
+    }
+
+    private boolean isQqBotPluginInstallNoop(String output) {
+        if (TextUtils.isEmpty(output)) {
+            return false;
+        }
+
+        String lower = output.toLowerCase(java.util.Locale.ROOT);
+        return lower.contains("already installed")
+            || lower.contains("already up to date")
+            || lower.contains("nothing to install")
+            || lower.contains("already exists")
+            || lower.contains("skipping")
+            || lower.contains("already have");
     }
 
     private void preloadExistingConfig() {
@@ -357,6 +624,9 @@ public abstract class ChannelFormFragment extends Fragment {
                 token = extractFeishuAppIdFromChannelConfig(channelConfig);
                 owner = extractFeishuAppSecretFromChannelConfig(channelConfig);
                 feishuUserId = extractFeishuUserIdFromChannelConfig(channelConfig);
+            } else if (ChannelConfigMeta.PLATFORM_QQBOT.equals(mMeta.platform)) {
+                token = extractQQBotAppIdFromChannelConfig(channelConfig);
+                owner = extractQQBotClientSecretFromChannelConfig(channelConfig);
             } else {
                 token = channelConfig.optString("botToken", null);
                 if (TextUtils.isEmpty(token)) {
@@ -405,6 +675,8 @@ public abstract class ChannelFormFragment extends Fragment {
                 if ("allowlist".equals(dmPolicy) && TextUtils.isEmpty(feishuUserId)) {
                     mHasExistingConfig = false;
                 }
+            } else if (ChannelConfigMeta.PLATFORM_QQBOT.equals(mMeta.platform)) {
+                mHasExistingConfig = !TextUtils.isEmpty(token) && !TextUtils.isEmpty(owner);
             }
 
         } catch (Exception e) {
@@ -481,6 +753,27 @@ public abstract class ChannelFormFragment extends Fragment {
         return "";
     }
 
+    private String extractQQBotAppIdFromChannelConfig(JSONObject channelConfig) {
+        if (channelConfig == null) {
+            return "";
+        }
+        Object appId = channelConfig.opt("appId");
+        return appId != null ? String.valueOf(appId) : "";
+    }
+
+    private String extractQQBotClientSecretFromChannelConfig(JSONObject channelConfig) {
+        if (channelConfig == null) {
+            return "";
+        }
+        Object clientSecret = channelConfig.opt("clientSecret");
+        return clientSecret != null ? String.valueOf(clientSecret) : "";
+    }
+
+    private void configureActionButtons() {
+        configureSkipAction();
+        configureDeleteAction();
+    }
+
     private void configureSkipAction() {
         if (mSkipButton == null) {
             return;
@@ -494,13 +787,135 @@ public abstract class ChannelFormFragment extends Fragment {
         }
     }
 
+    private void configureDeleteAction() {
+        if (mDeleteButton == null) {
+            return;
+        }
+
+        if (!mHasExistingConfig) {
+            mDeleteButton.setVisibility(View.GONE);
+            mDeleteButton.setOnClickListener(null);
+            return;
+        }
+
+        mDeleteButton.setVisibility(View.VISIBLE);
+        mDeleteButton.setText(R.string.botdrop_delete_channel_config);
+        mDeleteButton.setOnClickListener(v -> confirmDeleteConfig());
+    }
+
+    private void confirmDeleteConfig() {
+        if (!isAdded() || getActivity() == null || getActivity().isFinishing()) {
+            return;
+        }
+
+        if (mMeta == null) {
+            return;
+        }
+
+        Context ctx = getContext();
+        if (ctx == null) {
+            return;
+        }
+
+        String platformLabel = getString(mMeta.titleRes);
+        new AlertDialog.Builder(ctx)
+            .setTitle(getString(R.string.botdrop_delete_channel_title, platformLabel))
+            .setMessage(getString(R.string.botdrop_delete_channel_message, platformLabel))
+            .setPositiveButton(R.string.botdrop_delete_channel_config, (dialog, which) -> deleteChannelConfig())
+            .setNegativeButton(R.string.botdrop_cancel, (dialog, which) -> dialog.dismiss())
+            .show();
+    }
+
+    private void deleteChannelConfig() {
+        if (mMeta == null || !isAdded() || getActivity() == null || getActivity().isFinishing()) {
+            return;
+        }
+
+        if (!ChannelSetupHelper.removeChannelConfig(mMeta.platform)) {
+            showError(getString(R.string.botdrop_delete_channel_failed));
+            resetButton();
+            return;
+        }
+
+        showConnectPendingProgressWithMessage(R.string.botdrop_progress_deleting_channel_config);
+        mHasExistingConfig = false;
+        setActionButtonsEnabled(false);
+        clearConfigInputs();
+        mErrorMessage.setVisibility(View.GONE);
+        configureActionButtons();
+        showConnectPendingProgressWithMessage(R.string.botdrop_gateway_restarting);
+
+        restartGatewayAndExit();
+    }
+
+    private void restartGatewayAndExit() {
+        if (!mBound || mService == null) {
+            showError(getString(R.string.botdrop_service_not_ready));
+            configureActionButtons();
+            setActionButtonsEnabled(true);
+            resetButton();
+            finishChannelSetup();
+            return;
+        }
+
+        mService.restartGateway(result -> {
+            if (!isAdded() || getActivity() == null || getActivity().isFinishing()) {
+                return;
+            }
+            Activity activity = getActivity();
+            if (activity == null || activity.isFinishing()) {
+                return;
+            }
+
+            activity.runOnUiThread(() -> {
+                if (!result.success) {
+                    String errorMsg = result.stderr;
+                    if (TextUtils.isEmpty(errorMsg)) {
+                        errorMsg = result.stdout;
+                    }
+                    if (TextUtils.isEmpty(errorMsg)) {
+                        errorMsg = getString(
+                            R.string.botdrop_unknown_error_exit_code,
+                            result.exitCode
+                        );
+                    }
+                    showError(getString(R.string.botdrop_error_start_gateway, errorMsg));
+                    configureActionButtons();
+                    setActionButtonsEnabled(true);
+                    resetButton();
+                    return;
+                }
+                hideConnectPendingProgress();
+                finishChannelSetup();
+            });
+        });
+    }
+
+    private void clearConfigInputs() {
+        if (mTokenInput != null) {
+            mTokenInput.setText("");
+        }
+        if (mOwnerInput != null) {
+            mOwnerInput.setText("");
+        }
+        if (mFeishuUserIdInput != null) {
+            mFeishuUserIdInput.setText("");
+        }
+        if (mDiscordGuildInput != null) {
+            mDiscordGuildInput.setText("");
+        }
+    }
+
     private void startGateway() {
         if (!mBound || mService == null) {
             AnalyticsManager.logEvent(requireContext(), "channel_gateway_failed", "platform", mMeta.platform);
             showError(getString(R.string.botdrop_service_not_ready));
+            hideConnectPendingProgress();
             resetButton();
             return;
         }
+
+        showConnectPendingProgressWithMessage(R.string.botdrop_starting_gateway);
 
         Logger.logInfo(LOG_TAG, "Starting gateway...");
         mService.startGateway(result -> {
@@ -513,26 +928,38 @@ public abstract class ChannelFormFragment extends Fragment {
                 return;
             }
             activity.runOnUiThread(() -> {
+                hideConnectPendingProgress();
                 if (!isAdded() || getActivity() == null || getActivity().isFinishing()) {
                     return;
                 }
 
                 if (result.success) {
-                Logger.logInfo(LOG_TAG, "Gateway started successfully");
-                AnalyticsManager.logEvent(requireContext(), "channel_gateway_started", "platform", mMeta.platform);
-                Context ctx = getContext();
-                if (ctx != null) {
-                    Toast.makeText(
-                        ctx,
-                        R.string.botdrop_connected_gateway_starting,
-                        Toast.LENGTH_LONG
-                    ).show();
-                }
-
-                    SetupActivity setupActivity = (SetupActivity) getActivity();
-                    if (setupActivity != null && !setupActivity.isFinishing()) {
-                        setupActivity.goToNextStep();
+                    Logger.logInfo(LOG_TAG, "Gateway started successfully");
+                    AnalyticsManager.logEvent(requireContext(), "channel_gateway_started", "platform", mMeta.platform);
+                    Context ctx = getContext();
+                    if (ctx != null) {
+                        Toast.makeText(
+                            ctx,
+                            R.string.botdrop_connected_gateway_starting,
+                            Toast.LENGTH_LONG
+                        ).show();
                     }
+                    if (mConnectProgressMessage != null) {
+                        mConnectProgressMessage.setText(R.string.botdrop_connected_gateway_starting);
+                    }
+                    mUiHandler.postDelayed(
+                        () -> {
+                            if (!isAdded() || getActivity() == null || getActivity().isFinishing()) {
+                                return;
+                            }
+                            SetupActivity setupActivity = (SetupActivity) getActivity();
+                            if (setupActivity != null && !setupActivity.isFinishing()) {
+                                hideConnectPendingProgress();
+                                setupActivity.goToNextStep();
+                            }
+                        },
+                        CONNECT_SUCCESS_HOLD_MS
+                    );
                 } else {
                     Logger.logError(LOG_TAG, "Failed to start gateway: " + result.stderr);
                     AnalyticsManager.logEvent(requireContext(), "channel_gateway_failed", "platform", mMeta.platform);
@@ -592,8 +1019,23 @@ public abstract class ChannelFormFragment extends Fragment {
     }
 
     private void resetButton() {
+        hideConnectPendingProgress();
         mConnectButton.setEnabled(true);
         mConnectButton.setText(R.string.botdrop_connect_start);
+        setActionButtonsEnabled(true);
+        mConnectProgressMessage = null;
+    }
+
+    private void setActionButtonsEnabled(boolean enabled) {
+        if (mConnectButton != null) {
+            mConnectButton.setEnabled(enabled);
+        }
+        if (mDeleteButton != null) {
+            mDeleteButton.setEnabled(enabled);
+        }
+        if (mSkipButton != null) {
+            mSkipButton.setEnabled(enabled);
+        }
     }
 
     protected abstract String getPlatformId();

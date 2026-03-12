@@ -12,7 +12,8 @@ public class ChannelPagerAdapter extends FragmentStateAdapter {
     public static final int PAGE_TELEGRAM = 0;
     public static final int PAGE_DISCORD = 1;
     public static final int PAGE_FEISHU = 2;
-    private static final int PAGE_COUNT = 3;
+    public static final int PAGE_QQBOT = 3;
+    private static final int PAGE_COUNT = 4;
 
     public ChannelPagerAdapter(@NonNull Fragment fragment) {
         super(fragment);
@@ -26,6 +27,9 @@ public class ChannelPagerAdapter extends FragmentStateAdapter {
         }
         if (position == PAGE_FEISHU) {
             return new FeishuChannelFragment();
+        }
+        if (position == PAGE_QQBOT) {
+            return new QQBotChannelFragment();
         }
         return new TelegramChannelFragment();
     }

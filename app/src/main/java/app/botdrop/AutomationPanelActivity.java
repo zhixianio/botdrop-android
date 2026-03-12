@@ -12,13 +12,13 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.text.TextUtils;
-import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 
 import com.termux.R;
 import com.termux.app.AnalyticsManager;
@@ -39,6 +39,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
+import java.util.Arrays;
 
 import moe.shizuku.manager.MainActivity;
 import rikka.shizuku.Shizuku;
@@ -78,6 +79,7 @@ public class AutomationPanelActivity extends Activity {
     private TextView mU2StatusText;
     private Button mStartU2ServiceButton;
     private Button mStopU2ServiceButton;
+    private StepProgressDialog mU2StartProgressDialog;
 
     private BotDropService mBotDropService;
     private ShizukuShellExecutor mShizukuShellExecutor;
@@ -222,6 +224,10 @@ public class AutomationPanelActivity extends Activity {
         super.onDestroy();
         stopStatusPolling();
         Shizuku.removeRequestPermissionResultListener(mShizukuPermissionResultListener);
+        if (mU2StartProgressDialog != null && mU2StartProgressDialog.isShowing()) {
+            mU2StartProgressDialog.dismiss();
+        }
+        mU2StartProgressDialog = null;
         if (mBound) {
             unbindService(mConnection);
             mBound = false;
@@ -492,6 +498,8 @@ public class AutomationPanelActivity extends Activity {
         setU2ServiceButtonsState(false, false);
         mU2StatusText.setText(getString(R.string.botdrop_u2_service_status_checking));
         Toast.makeText(this, getString(R.string.botdrop_u2_service_starting), Toast.LENGTH_SHORT).show();
+        showU2StartProgressDialog();
+        setU2StartProgressMessage(R.string.botdrop_u2_service_prepare_step_prepare_env);
 
         new Thread(() -> {
             // Pre-step: copy u2.jar from assets to /data/local/tmp/
@@ -502,13 +510,15 @@ public class AutomationPanelActivity extends Activity {
                     Toast.makeText(this, getString(R.string.botdrop_u2_service_start_failed) + ": " + copyMessage,
                             Toast.LENGTH_LONG).show();
                     Logger.logWarn(LOG_TAG, "Prepare u2 jar failed: " + copyMessage);
+                    showU2StartProgressFailure(
+                        getString(R.string.botdrop_u2_service_start_failed) + ": " + copyMessage
+                    );
                     checkU2ServiceStatus();
                 });
                 return;
             }
 
             // Pre-step: ensure sharp is installed (also cleans broken dpkg-perl dependency)
-            setU2StatusText(getString(R.string.botdrop_u2_service_prepare_step_prepare_env));
             mBotDropService.runEnsureSharpInstalled(sharpResult -> {
                 if (!isUiAvailable()) return;
 
@@ -519,6 +529,9 @@ public class AutomationPanelActivity extends Activity {
                     if (checkResult != null && checkResult.success) {
                         // Already installed – skip to step 4, still install IME
                         Logger.logInfo(LOG_TAG, "u2automator already installed, skipping steps 1-3");
+                        // Mark skipped steps as done, then continue with IME installation
+                        setU2StartProgressStep(2);
+                        setU2StartProgressStep(3);
                         installAdbKeyboardIme(() -> startU2Jar());
                     } else {
                         // Not installed – run full setup steps 1-3 then start
@@ -531,12 +544,15 @@ public class AutomationPanelActivity extends Activity {
 
     private void startU2Jar() {
         setU2StatusText(getString(R.string.botdrop_u2_service_prepare_step_start_u2));
+        setU2StartProgressMessage(R.string.botdrop_u2_service_prepare_step_start_u2);
+        setU2StartProgressStep(4);
         executeShizukuShellCommand(buildStartU2Command(), step4 -> {
             if (!isUiAvailable()) return;
             if (step4 == null || !step4.success) {
                 handleU2StartStepFailure("start u2.jar", step4);
                 return;
             }
+            completeU2StartProgress();
             mU2SetupInProgress = false;
             runOnUiThread(() -> {
                 Toast.makeText(this,
@@ -550,6 +566,8 @@ public class AutomationPanelActivity extends Activity {
     private void runU2SetupSteps() {
         // Step 1/5: Trim apt sources (via Termux shell)
         setU2StatusText(getString(R.string.botdrop_u2_service_prepare_step_clean_sources));
+        setU2StartProgressMessage(R.string.botdrop_u2_service_prepare_step_clean_sources);
+        setU2StartProgressStep(0);
         mBotDropService.executeU2SetupCommand(buildTrimAptSourcesForU2Command(), step1 -> {
             if (!isUiAvailable()) return;
             if (step1 == null || !step1.success) {
@@ -559,6 +577,8 @@ public class AutomationPanelActivity extends Activity {
 
             // Step 2/5: Reinstall dependencies (via Termux shell, up to 3 min)
             setU2StatusText(getString(R.string.botdrop_u2_service_prepare_step_prepare_env));
+            setU2StartProgressMessage(R.string.botdrop_u2_service_prepare_step_prepare_env);
+            setU2StartProgressStep(1);
             mBotDropService.executeU2SetupCommand(buildReinstallDependenciesCommand(), 180, step2 -> {
                 if (!isUiAvailable()) return;
                 if (step2 == null || !step2.success) {
@@ -568,6 +588,8 @@ public class AutomationPanelActivity extends Activity {
 
                 // Step 3/5: Install u2automator from GitHub (via Termux shell, up to 10 min)
                 setU2StatusText(getString(R.string.botdrop_u2_service_prepare_step_verify));
+                setU2StartProgressMessage(R.string.botdrop_u2_service_prepare_step_verify);
+                setU2StartProgressStep(2);
                 mBotDropService.executeU2SetupCommand(buildInstallU2AutomatorCommand(), 600, step3 -> {
                     if (!isUiAvailable()) return;
                     if (step3 == null || !step3.success) {
@@ -592,6 +614,7 @@ public class AutomationPanelActivity extends Activity {
             String message = getString(R.string.botdrop_u2_service_start_failed) + ": " + reason;
             Toast.makeText(this, message, Toast.LENGTH_LONG).show();
             setU2StatusText(message);
+            showU2StartProgressFailure(message);
             Logger.logWarn(LOG_TAG, "u2 start failed at [" + stepName + "]: " + reason);
             checkU2ServiceStatus();
         });
@@ -599,6 +622,8 @@ public class AutomationPanelActivity extends Activity {
 
     private void installAdbKeyboardIme(Runnable onComplete) {
         setU2StatusText(getString(R.string.botdrop_u2_service_prepare_step_install_ime));
+        setU2StartProgressMessage(R.string.botdrop_u2_service_prepare_step_install_ime);
+        setU2StartProgressStep(3);
 
         // Check if already installed via Shizuku shell
         executeShizukuShellCommand("pm list packages " + U2_IME_PACKAGE, checkResult -> {
@@ -625,6 +650,7 @@ public class AutomationPanelActivity extends Activity {
                         String message = getString(R.string.botdrop_u2_service_start_failed) + ": " + error;
                         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
                         setU2StatusText(message);
+                        showU2StartProgressFailure(message);
                         Logger.logWarn(LOG_TAG, "Download AdbKeyboard APK failed: " + error);
                         checkU2ServiceStatus();
                     });
@@ -699,6 +725,70 @@ public class AutomationPanelActivity extends Activity {
             return;
         }
         runOnUiThread(() -> mU2StatusText.setText(text));
+    }
+
+    private void showU2StartProgressDialog() {
+        if (!isUiAvailable()) {
+            return;
+        }
+
+        mU2StartProgressDialog = StepProgressDialog.create(
+            this,
+            R.string.botdrop_u2_service_starting,
+            Arrays.asList(
+                getString(R.string.botdrop_u2_service_prepare_step_clean_sources),
+                getString(R.string.botdrop_u2_service_prepare_step_prepare_env),
+                getString(R.string.botdrop_u2_service_prepare_step_verify),
+                getString(R.string.botdrop_u2_service_prepare_step_install_ime),
+                getString(R.string.botdrop_u2_service_prepare_step_start_u2)
+            ),
+            getString(R.string.botdrop_u2_service_status_checking)
+        );
+        mU2StartProgressDialog.show();
+    }
+
+    private void setU2StartProgressMessage(@StringRes int messageRes) {
+        if (!isUiAvailable() || mU2StartProgressDialog == null) {
+            return;
+        }
+        mU2StartProgressDialog.setStatus(messageRes);
+    }
+
+    private void setU2StartProgressMessage(@Nullable String message) {
+        if (!isUiAvailable() || mU2StartProgressDialog == null) {
+            return;
+        }
+        mU2StartProgressDialog.setStatus(message);
+    }
+
+    private void setU2StartProgressStep(int nextStep) {
+        if (!isUiAvailable() || mU2StartProgressDialog == null) {
+            return;
+        }
+        mU2StartProgressDialog.setStep(nextStep);
+    }
+
+    private void completeU2StartProgress() {
+        if (!isUiAvailable() || mU2StartProgressDialog == null) {
+            return;
+        }
+
+        mU2StartProgressDialog.complete(getString(R.string.botdrop_u2_service_start_command_sent));
+        mHandler.postDelayed(() -> {
+            if (mU2StartProgressDialog != null && mU2StartProgressDialog.isShowing()) {
+                mU2StartProgressDialog.dismiss();
+                mU2StartProgressDialog = null;
+            }
+        }, 1200);
+    }
+
+    private void showU2StartProgressFailure(String message) {
+        if (mU2StartProgressDialog != null && mU2StartProgressDialog.isShowing()) {
+            mU2StartProgressDialog.showError(message, () -> {
+                mU2StartProgressDialog = null;
+                mU2SetupInProgress = false;
+            });
+        }
     }
 
     private String buildTrimAptSourcesForU2Command() {

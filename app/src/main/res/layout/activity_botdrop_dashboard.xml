@@ -444,6 +444,46 @@
                         android:textSize="16sp"
                         android:textColor="@color/botdrop_secondary_text" />
                 </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/qqbot_channel_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/botdrop_card_bg"
+                    android:paddingVertical="10dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:layout_marginTop="4dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:foreground="?android:attr/selectableItemBackground">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/botdrop_channel_qqbot"
+                        android:textSize="16sp"
+                        android:textColor="@color/botdrop_on_background" />
+
+                    <TextView
+                        android:id="@+id/qqbot_status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="○ —"
+                        android:textSize="14sp"
+                        android:textColor="@color/botdrop_secondary_text" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="›"
+                        android:textSize="16sp"
+                        android:textColor="@color/botdrop_secondary_text" />
+                </LinearLayout>
         </LinearLayout>
 
         <!-- Current Model Section -->

@@ -22,10 +22,13 @@ import com.termux.shared.logger.Logger;
 public class ChannelFragment extends Fragment {
 
     private static final String LOG_TAG = "ChannelFragment";
+    // Short label to keep the scrollable tab bar compact (full name "QQ Bot" / "QQ 机器人" is too wide).
+    private static final String QQ_TAB_TITLE = "QQ";
     private static final int[] TAB_TITLE_IDS = {
         R.string.botdrop_platform_telegram,
         R.string.botdrop_platform_discord,
-        R.string.botdrop_platform_feishu
+        R.string.botdrop_platform_feishu,
+        R.string.botdrop_platform_qqbot
     };
 
     private TabLayout mChannelTabs;
@@ -57,10 +60,7 @@ public class ChannelFragment extends Fragment {
         mChannelPager.setOffscreenPageLimit(1);
 
         new TabLayoutMediator(mChannelTabs, mChannelPager, (tab, position) -> {
-            String title = (position >= 0 && position < TAB_TITLE_IDS.length)
-                ? getString(TAB_TITLE_IDS[position])
-                : String.valueOf(position + 1);
-            tab.setText(title);
+            tab.setText(resolveTabTitle(position));
         }).attach();
 
         String platform = null;
@@ -89,6 +89,9 @@ public class ChannelFragment extends Fragment {
         if (ChannelConfigMeta.PLATFORM_FEISHU.equals(platform)) {
             return ChannelPagerAdapter.PAGE_FEISHU;
         }
+        if (ChannelConfigMeta.PLATFORM_QQBOT.equals(platform)) {
+            return ChannelPagerAdapter.PAGE_QQBOT;
+        }
         return ChannelPagerAdapter.PAGE_TELEGRAM;
     }
 
@@ -98,8 +101,21 @@ public class ChannelFragment extends Fragment {
                 return ChannelConfigMeta.PLATFORM_DISCORD;
             case ChannelPagerAdapter.PAGE_FEISHU:
                 return ChannelConfigMeta.PLATFORM_FEISHU;
+            case ChannelPagerAdapter.PAGE_QQBOT:
+                return ChannelConfigMeta.PLATFORM_QQBOT;
             default:
                 return ChannelConfigMeta.PLATFORM_TELEGRAM;
         }
+    }
+
+    private String resolveTabTitle(int position) {
+        if (position == ChannelPagerAdapter.PAGE_QQBOT) {
+            return QQ_TAB_TITLE;
+        }
+
+        if (position >= 0 && position < TAB_TITLE_IDS.length) {
+            return getString(TAB_TITLE_IDS[position]);
+        }
+        return String.valueOf(position + 1);
     }
 }

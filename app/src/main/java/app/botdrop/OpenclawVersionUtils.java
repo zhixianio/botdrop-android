@@ -2,6 +2,8 @@ package app.botdrop;
 
 import android.text.TextUtils;
 
+import com.termux.shared.termux.TermuxConstants;
+
 import org.json.JSONArray;
 
 import java.util.ArrayList;
@@ -17,6 +19,11 @@ public final class OpenclawVersionUtils {
     public static final String VERSION_PREFIX = "openclaw@";
     public static final String DEFAULT_NPM_REGISTRY = "https://registry.npmjs.org/";
     public static final String CN_NPM_REGISTRY = "https://registry.npmmirror.com/";
+    private static final String BOTDROP_APT_SOURCE_LINE =
+        "deb [trusted=yes] https://zhixianio.github.io/botdrop-packages/ stable main";
+    private static final String BOTDROP_APT_SOURCES_LIST = TermuxConstants.TERMUX_PREFIX_DIR_PATH + "/etc/apt/sources.list";
+    private static final String BOTDROP_APT_SOURCES_LIST_D = TermuxConstants.TERMUX_PREFIX_DIR_PATH + "/etc/apt/sources.list.d";
+    private static final String BOTDROP_APT_LIST_FILE = BOTDROP_APT_SOURCES_LIST_D + "/botdrop.list";
     public static final int NPM_REGISTRY_CACHE_TTL_SECONDS = 24 * 60 * 60;
     public static final String VERSIONS_COMMAND = buildVersionsCommand();
     public static final String LATEST_VERSION_COMMAND = buildLatestVersionCommand();
@@ -80,7 +87,7 @@ public final class OpenclawVersionUtils {
     }
 
     public static String buildVersionsCommand() {
-        return buildNpmCommandPrefix() + "npm view openclaw versions --json";
+        return buildVersionEnvironmentPrepCommand() + buildNpmCommandPrefix() + "npm view openclaw versions --json";
     }
 
     public static String buildLatestVersionCommand() {
@@ -91,6 +98,21 @@ public final class OpenclawVersionUtils {
     public static String buildNpmInstallCommand(String packageSpec) {
         String safePackage = shellQuoteSingle(TextUtils.isEmpty(packageSpec) ? "openclaw@latest" : packageSpec);
         return buildNpmCommandPrefix() + "npm install -g " + safePackage + " --ignore-scripts --force";
+    }
+
+    private static String buildVersionEnvironmentPrepCommand() {
+        return
+            "mkdir -p " + BOTDROP_APT_SOURCES_LIST_D + "\n" +
+            "printf '%s\\n' '" + BOTDROP_APT_SOURCE_LINE + "' > " + BOTDROP_APT_LIST_FILE + "\n" +
+            "printf '%s\\n' '" + BOTDROP_APT_SOURCE_LINE + "' > " + BOTDROP_APT_SOURCES_LIST + "\n" +
+            "for f in " + BOTDROP_APT_SOURCES_LIST_D + "/*.list; do\n" +
+            "    if [ -f \"$f\" ] && [ \"$f\" != \"" + BOTDROP_APT_LIST_FILE + "\" ]; then\n" +
+            "        rm -f \"$f\"\n" +
+            "    fi\n" +
+            "done\n" +
+            "chmod +x $PREFIX/bin/* 2>/dev/null || true\n" +
+            "chmod +x $PREFIX/lib/node_modules/.bin/* 2>/dev/null || true\n" +
+            "chmod +x $PREFIX/lib/node_modules/npm/bin/* 2>/dev/null || true\n";
     }
 
     public static String buildNpmCommandPrefix() {
@@ -139,7 +161,23 @@ public final class OpenclawVersionUtils {
         if (TextUtils.isEmpty(version)) {
             return null;
         }
-        String v = version.trim().replace("\"", "").replace("'", "").trim();
+        String v = version.trim();
+        if (TextUtils.isEmpty(v)) {
+            return null;
+        }
+        if (v.startsWith("[")) {
+            v = v.substring(1).trim();
+        }
+        while (v.endsWith(",")) {
+            v = v.substring(0, v.length() - 1).trim();
+        }
+        if (v.endsWith("]")) {
+            v = v.substring(0, v.length() - 1).trim();
+        }
+        v = v.replace("\"", "").replace("'", "").trim();
+        if (TextUtils.isEmpty(v)) {
+            return null;
+        }
         if (v.startsWith(VERSION_PREFIX)) {
             v = v.substring(VERSION_PREFIX.length());
         }

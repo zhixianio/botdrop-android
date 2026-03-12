@@ -10,6 +10,7 @@ public class ChannelConfigMeta {
     public static final String PLATFORM_TELEGRAM = "telegram";
     public static final String PLATFORM_DISCORD = "discord";
     public static final String PLATFORM_FEISHU = "feishu";
+    public static final String PLATFORM_QQBOT = "qqbot";
 
     public final String platform;
     public final int titleRes;
@@ -50,6 +51,9 @@ public class ChannelConfigMeta {
         if (PLATFORM_FEISHU.equals(platform)) {
             return feishu();
         }
+        if (PLATFORM_QQBOT.equals(platform)) {
+            return qqbot();
+        }
         return telegram();
     }
 
@@ -76,7 +80,7 @@ public class ChannelConfigMeta {
             R.string.botdrop_discord_token_hint,
             R.string.botdrop_owner_id,
             R.string.botdrop_discord_owner_id_hint,
-            R.string.botdrop_discord_steps,
+            R.string.botdrop_discord_intro,
             false
         );
     }
@@ -91,6 +95,20 @@ public class ChannelConfigMeta {
             R.string.botdrop_app_secret,
             R.string.botdrop_feishu_app_secret_hint,
             R.string.botdrop_feishu_steps,
+            true
+        );
+    }
+
+    public static ChannelConfigMeta qqbot() {
+        return new ChannelConfigMeta(
+            PLATFORM_QQBOT,
+            R.string.botdrop_platform_qqbot,
+            "https://q.qq.com/",
+            R.string.botdrop_app_id,
+            R.string.botdrop_qqbot_app_id_hint,
+            R.string.botdrop_app_secret,
+            R.string.botdrop_qqbot_app_secret_hint,
+            R.string.botdrop_qqbot_steps,
             true
         );
     }
@@ -113,6 +131,9 @@ public class ChannelConfigMeta {
             return false;
         }
         if (PLATFORM_FEISHU.equals(platform)) {
+            return true;
+        }
+        if (PLATFORM_QQBOT.equals(platform)) {
             return true;
         }
         return ownerId.matches("^\\d+$");

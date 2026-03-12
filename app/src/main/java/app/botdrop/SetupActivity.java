@@ -247,30 +247,39 @@ public class SetupActivity extends AppCompatActivity {
     public void goToNextStep() {
         int current = mViewPager.getCurrentItem();
         if (current == STEP_INSTALL) {
-            if (!canReadOpenclawBackupDirectoryForScan()) {
-            Toast.makeText(this, getString(R.string.botdrop_backup_permission_denied_with_manual_restore), Toast.LENGTH_SHORT).show();
-            continueToNextStep(current);
-            return;
-        }
-
-            File latestBackup = getLatestOpenclawBackupFile();
-            if (latestBackup == null || !latestBackup.exists()) {
-                Toast.makeText(
-                    this,
-                    getString(
-                        R.string.botdrop_no_openclaw_backup_found,
-                        getOpenclawBackupDirectory().getAbsolutePath()
-                    ),
-                    Toast.LENGTH_SHORT
-                ).show();
-            continueToNextStep(current);
-            return;
-        }
-
-            showOpenclawRestoreDialog(() -> continueToNextStep(current), latestBackup);
+            continueToNextStepWithOpenclawRestorePrompt(current);
             return;
         }
         continueToNextStep(current);
+    }
+
+    private void continueToNextStepWithOpenclawRestorePrompt(int currentStep) {
+        runWithOpenclawStoragePermission(
+            () -> {
+                File latestBackup = getLatestOpenclawBackupFile();
+                if (latestBackup == null || !latestBackup.exists()) {
+                    Toast.makeText(
+                        this,
+                        getString(
+                            R.string.botdrop_no_openclaw_backup_found,
+                            getOpenclawBackupDirectory().getAbsolutePath()
+                        ),
+                        Toast.LENGTH_SHORT
+                    ).show();
+                    continueToNextStep(currentStep);
+                    return;
+                }
+                showOpenclawRestoreDialog(() -> continueToNextStep(currentStep), latestBackup);
+            },
+            () -> {
+                Toast.makeText(
+                    this,
+                    getString(R.string.botdrop_backup_permission_denied_with_manual_restore),
+                    Toast.LENGTH_SHORT
+                ).show();
+                continueToNextStep(currentStep);
+            }
+        );
     }
 
     private void continueToNextStep(int current) {
@@ -585,13 +594,6 @@ public class SetupActivity extends AppCompatActivity {
             }
             return false;
         }
-    }
-
-    private boolean canReadOpenclawBackupDirectoryForScan() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return true;
-        }
-        return isOpenclawStoragePermissionGranted();
     }
 
     private boolean isOpenclawStoragePermissionGranted() {

@@ -15,16 +15,8 @@
             android:id="@+id/channel_setup_help_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/botdrop_discord_intro"
+            android:text="@string/botdrop_qqbot_intro"
             android:textSize="14sp"
-            android:textColor="@color/botdrop_secondary_text"
-            android:layout_marginBottom="16dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/botdrop_discord_steps"
-            android:textSize="13sp"
             android:textColor="@color/botdrop_secondary_text"
             android:layout_marginBottom="16dp" />
 
@@ -32,7 +24,7 @@
             android:id="@+id/channel_token_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/botdrop_bot_token"
+            android:text="@string/botdrop_app_id"
             android:textSize="14sp"
             android:textColor="@color/botdrop_secondary_text"
             android:layout_marginBottom="6dp" />
@@ -41,7 +33,7 @@
             android:id="@+id/channel_token_input"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/botdrop_bot_token_hint"
+            android:hint="@string/botdrop_qqbot_app_id_hint"
             android:inputType="text"
             android:padding="14dp"
             android:textSize="14sp"
@@ -50,38 +42,6 @@
             android:textColor="@color/botdrop_on_background"
             android:textColorHint="@color/botdrop_secondary_text"
             android:layout_marginBottom="16dp" />
-
-        <LinearLayout
-            android:id="@+id/channel_discord_guild_id_row"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <TextView
-                android:id="@+id/channel_discord_guild_id_label"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/botdrop_guild_id"
-                android:textSize="14sp"
-                android:textColor="@color/botdrop_secondary_text"
-                android:layout_marginBottom="6dp" />
-
-            <EditText
-                android:id="@+id/channel_discord_guild_id_input"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/botdrop_guild_id"
-                android:inputType="number"
-                android:padding="14dp"
-                android:textSize="14sp"
-                android:fontFamily="monospace"
-                android:background="@drawable/botdrop_input_bg"
-                android:textColor="@color/botdrop_on_background"
-                android:textColorHint="@color/botdrop_secondary_text"
-                android:layout_marginBottom="16dp" />
-
-        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/channel_owner_row"
@@ -94,7 +54,7 @@
                 android:id="@+id/channel_owner_label"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/botdrop_owner_id"
+                android:text="@string/botdrop_app_secret"
                 android:textSize="14sp"
                 android:textColor="@color/botdrop_secondary_text"
                 android:layout_marginBottom="6dp" />
@@ -103,7 +63,7 @@
                 android:id="@+id/channel_owner_input"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/botdrop_owner_id"
+                android:hint="@string/botdrop_qqbot_app_secret_hint"
                 android:inputType="text"
                 android:padding="14dp"
                 android:textSize="14sp"
@@ -112,13 +72,12 @@
                 android:textColor="@color/botdrop_on_background"
                 android:textColorHint="@color/botdrop_secondary_text"
                 android:layout_marginBottom="16dp" />
-
         </LinearLayout>
 
         <TextView
             style="@style/BotDropChannelOpenSetupLink"
             android:id="@+id/channel_open_setup_bot"
-            android:text="@string/botdrop_open_discord_developers"
+            android:text="@string/botdrop_open_qqbot_console"
             android:layout_marginBottom="16dp"
             android:layout_marginStart="0dp"
             android:layout_marginEnd="0dp" />
@@ -165,7 +124,6 @@
             android:visibility="gone"
             android:layout_marginTop="16dp" />
 
-        <!-- Keep a dedicated setup help target for shared fragment binding -->
     </LinearLayout>
 
 </ScrollView>

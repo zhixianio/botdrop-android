@@ -366,6 +366,19 @@ public class ChannelSetupHelperTest {
     }
 
     /**
+     * Test: writeChannelConfig for QQ Bot
+     */
+    @Test
+    public void testWriteChannelConfig_qqbot_handlesGracefully() {
+        boolean result = ChannelSetupHelper.writeQQBotChannelConfig(
+            "qq-app-id",
+            "qq-client-secret"
+        );
+
+        assertFalse("Should return false when unable to write to non-existent paths", result);
+    }
+
+    /**
      * Test: writeChannelConfig with unsupported platform
      */
     @Test

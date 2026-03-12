@@ -93,6 +93,21 @@ public class BotDropService extends Service {
         return START_STICKY;
     }
 
+    /**
+     * Safely submit a task to an executor, catching RejectedExecutionException
+     * that occurs when the executor has been shut down (e.g. after onDestroy).
+     * Returns true if the task was accepted, false otherwise.
+     */
+    private boolean safeExecute(ExecutorService executor, Runnable task) {
+        try {
+            executor.execute(task);
+            return true;
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            Logger.logWarn(LOG_TAG, "Executor rejected task (service shutting down): " + e.getMessage());
+            return false;
+        }
+    }
+
     @Override
     public void onDestroy() {
         super.onDestroy();
@@ -153,20 +168,26 @@ public class BotDropService extends Service {
      * Execute a shell command in the Termux environment
      */
     public void executeCommand(String command, CommandCallback callback) {
-        mExecutor.execute(() -> {
+        if (!safeExecute(mExecutor, () -> {
             CommandResult result = executeCommandSync(command);
             mHandler.post(() -> callback.onResult(result));
-        });
+        })) {
+            mHandler.post(() -> callback.onResult(
+                new CommandResult(false, "", "Service executor is shut down", -1)));
+        }
     }
 
     /**
      * Execute a shell command in the Termux environment with custom timeout in seconds
      */
     public void executeCommand(String command, int timeoutSeconds, CommandCallback callback) {
-        mExecutor.execute(() -> {
+        if (!safeExecute(mExecutor, () -> {
             CommandResult result = executeCommandSync(command, timeoutSeconds);
             mHandler.post(() -> callback.onResult(result));
-        });
+        })) {
+            mHandler.post(() -> callback.onResult(
+                new CommandResult(false, "", "Service executor is shut down", -1)));
+        }
     }
 
     /**
@@ -174,30 +195,39 @@ public class BotDropService extends Service {
      * This also cleans up broken dpkg-perl/dpkg-scanpackages dependencies.
      */
     public void runEnsureSharpInstalled(CommandCallback callback) {
-        mU2SetupExecutor.execute(() -> {
+        if (!safeExecute(mU2SetupExecutor, () -> {
             ensureSharpInstalled();
             mHandler.post(() -> callback.onResult(new CommandResult(true, "done", "", 0)));
-        });
+        })) {
+            mHandler.post(() -> callback.onResult(
+                new CommandResult(false, "", "Service executor is shut down", -1)));
+        }
     }
 
     /**
      * Execute a shell command on the dedicated u2 setup executor (does not block mExecutor).
      */
     public void executeU2SetupCommand(String command, CommandCallback callback) {
-        mU2SetupExecutor.execute(() -> {
+        if (!safeExecute(mU2SetupExecutor, () -> {
             CommandResult result = executeCommandSync(command);
             mHandler.post(() -> callback.onResult(result));
-        });
+        })) {
+            mHandler.post(() -> callback.onResult(
+                new CommandResult(false, "", "Service executor is shut down", -1)));
+        }
     }
 
     /**
      * Execute a shell command on the dedicated u2 setup executor with custom timeout in seconds.
      */
     public void executeU2SetupCommand(String command, int timeoutSeconds, CommandCallback callback) {
-        mU2SetupExecutor.execute(() -> {
+        if (!safeExecute(mU2SetupExecutor, () -> {
             CommandResult result = executeCommandSync(command, timeoutSeconds);
             mHandler.post(() -> callback.onResult(result));
-        });
+        })) {
+            mHandler.post(() -> callback.onResult(
+                new CommandResult(false, "", "Service executor is shut down", -1)));
+        }
     }
 
     /**
@@ -371,7 +401,7 @@ public class BotDropService extends Service {
             }
 
             // Wait with timeout to prevent hanging indefinitely
-            boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+            boolean finished = waitForCompat(process, timeoutSeconds, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
                 Logger.logError(LOG_TAG, "Command timeout after " + timeoutSeconds + " seconds");
@@ -420,7 +450,7 @@ public class BotDropService extends Service {
                 return true;
             }
             try {
-                Thread.sleep(200);
+                Thread.sleep(500);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return false;
@@ -461,7 +491,7 @@ public class BotDropService extends Service {
     public void installOpenclaw(InstallProgressCallback callback) {
         final String INSTALL_SCRIPT = TermuxConstants.TERMUX_PREFIX_DIR_PATH + "/share/botdrop/install.sh";
 
-        mExecutor.execute(() -> {
+        if (!safeExecute(mExecutor, () -> {
             // Verify install script exists
             if (!new java.io.File(INSTALL_SCRIPT).exists()) {
                 mHandler.post(() -> callback.onError(
@@ -505,7 +535,7 @@ public class BotDropService extends Service {
                     }
                 }
 
-                boolean finished = process.waitFor(300, TimeUnit.SECONDS);
+                boolean finished = waitForCompat(process, 300, TimeUnit.SECONDS);
                 if (!finished) {
                     process.destroyForcibly();
                     mHandler.post(() -> callback.onError("Installation timed out after 5 minutes"));
@@ -529,7 +559,9 @@ public class BotDropService extends Service {
                 String msg = e.getMessage();
                 mHandler.post(() -> callback.onError("Installation error: " + msg));
             }
-        });
+        })) {
+            mHandler.post(() -> callback.onError("Service executor is shut down"));
+        }
     }
 
     /**
@@ -1309,6 +1341,28 @@ public class BotDropService extends Service {
             "  cat " + debugLog + "\n" +
             "  exit 1\n" +
             "fi\n";
+    }
+
+    /**
+     * Compatibility wrapper for Process.waitFor(long, TimeUnit) which is only
+     * available on API 26+. On older devices, polls with Thread.sleep.
+     */
+    private static boolean waitForCompat(Process process, long timeout, TimeUnit unit) throws InterruptedException {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return process.waitFor(timeout, unit);
+        }
+        // Polling fallback for API < 26
+        long deadlineMs = System.currentTimeMillis() + unit.toMillis(timeout);
+        while (System.currentTimeMillis() < deadlineMs) {
+            try {
+                process.exitValue();
+                return true; // process has exited
+            } catch (IllegalThreadStateException e) {
+                // still running
+            }
+            Thread.sleep(500);
+        }
+        return false;
     }
 
     /**
