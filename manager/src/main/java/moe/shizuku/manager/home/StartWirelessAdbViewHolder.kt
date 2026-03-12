@@ -18,6 +18,7 @@ import moe.shizuku.manager.databinding.HomeItemContainerBinding
 import moe.shizuku.manager.databinding.HomeStartWirelessAdbBinding
 import moe.shizuku.manager.ktx.toHtml
 import moe.shizuku.manager.starter.StarterActivity
+import moe.shizuku.manager.utils.BotDropAnalytics
 import moe.shizuku.manager.utils.CustomTabsHelper
 import moe.shizuku.manager.utils.EnvironmentUtils
 import rikka.core.content.asActivity
@@ -65,6 +66,7 @@ class StartWirelessAdbViewHolder(binding: HomeStartWirelessAdbBinding, root: Vie
     }
 
     private fun onAdbClicked(context: Context) {
+        BotDropAnalytics.logEvent(context, "automation_shizuku_start_tap")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             AdbDialogFragment().show(context.asActivity<FragmentActivity>().supportFragmentManager)
             return
@@ -86,6 +88,7 @@ class StartWirelessAdbViewHolder(binding: HomeStartWirelessAdbBinding, root: Vie
 
     @RequiresApi(Build.VERSION_CODES.R)
     private fun onPairClicked(context: Context) {
+        BotDropAnalytics.logEvent(context, "automation_shizuku_pair_tap")
         try {
             if ((context.display?.displayId ?: -1) > 0) {
                 // Running in a multi-display environment (e.g., Windows Subsystem for Android),

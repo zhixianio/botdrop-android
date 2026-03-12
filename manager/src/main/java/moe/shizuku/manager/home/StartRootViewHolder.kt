@@ -12,6 +12,7 @@ import moe.shizuku.manager.databinding.HomeItemContainerBinding
 import moe.shizuku.manager.databinding.HomeStartRootBinding
 import moe.shizuku.manager.ktx.toHtml
 import moe.shizuku.manager.starter.StarterActivity
+import moe.shizuku.manager.utils.BotDropAnalytics
 import rikka.html.text.HtmlCompat
 import rikka.recyclerview.BaseViewHolder
 import rikka.recyclerview.BaseViewHolder.Creator
@@ -42,6 +43,7 @@ class StartRootViewHolder(private val binding: HomeStartRootBinding, root: View)
 
     private fun onStartClicked(v: View) {
         val context = v.context
+        BotDropAnalytics.logEvent(context, "automation_shizuku_start_tap", "source", "root")
         val intent = Intent(context, StarterActivity::class.java).apply {
             putExtra(StarterActivity.EXTRA_IS_ROOT, true)
         }

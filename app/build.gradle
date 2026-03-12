@@ -2,6 +2,10 @@ plugins {
     id "com.android.application"
 }
 
+configurations.configureEach {
+    resolutionStrategy.force "com.google.guava:guava:24.1-jre"
+}
+
 def hasGoogleServicesConfig = file("google-services.json").exists()
 if (hasGoogleServicesConfig) {
     apply plugin: "com.google.firebase.crashlytics"

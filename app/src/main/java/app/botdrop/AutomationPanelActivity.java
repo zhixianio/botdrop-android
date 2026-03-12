@@ -490,6 +490,7 @@ public class AutomationPanelActivity extends Activity {
             return;
         }
         if (mBotDropService == null || !mBound) {
+            AnalyticsManager.logEvent(this, "automation_u2_start_failed", "reason", "service_not_connected");
             Toast.makeText(this, getString(R.string.botdrop_service_not_connected), Toast.LENGTH_SHORT).show();
             return;
         }
@@ -511,6 +512,7 @@ public class AutomationPanelActivity extends Activity {
                             Toast.LENGTH_LONG).show();
                     Logger.logWarn(LOG_TAG, "Prepare u2 jar failed: " + copyMessage);
                     showU2StartProgressFailure(
+                        "copy_u2_failed",
                         getString(R.string.botdrop_u2_service_start_failed) + ": " + copyMessage
                     );
                     checkU2ServiceStatus();
@@ -607,15 +609,16 @@ public class AutomationPanelActivity extends Activity {
 
     private void handleU2StartStepFailure(String stepName,
             @Nullable BotDropService.CommandResult result) {
-        String reason = resolveCommandFailure(result);
+        String detail = resolveCommandFailure(result);
+        String reason = mapU2StartFailureReason(stepName);
         mU2SetupInProgress = false;
         runOnUiThread(() -> {
             if (!isUiAvailable()) return;
-            String message = getString(R.string.botdrop_u2_service_start_failed) + ": " + reason;
+            String message = getString(R.string.botdrop_u2_service_start_failed) + ": " + detail;
             Toast.makeText(this, message, Toast.LENGTH_LONG).show();
             setU2StatusText(message);
-            showU2StartProgressFailure(message);
-            Logger.logWarn(LOG_TAG, "u2 start failed at [" + stepName + "]: " + reason);
+            showU2StartProgressFailure(reason, message);
+            Logger.logWarn(LOG_TAG, "u2 start failed at [" + stepName + "]: " + detail);
             checkU2ServiceStatus();
         });
     }
@@ -635,6 +638,10 @@ public class AutomationPanelActivity extends Activity {
                 Logger.logInfo(LOG_TAG, "AdbKeyboard IME already installed, enabling");
                 executeShizukuShellCommand("ime enable " + U2_IME_COMPONENT, enableResult -> {
                     if (!isUiAvailable()) return;
+                    if (enableResult == null || !enableResult.success) {
+                        handleU2StartStepFailure("enable AdbKeyboard IME", enableResult);
+                        return;
+                    }
                     onComplete.run();
                 });
                 return;
@@ -650,7 +657,7 @@ public class AutomationPanelActivity extends Activity {
                         String message = getString(R.string.botdrop_u2_service_start_failed) + ": " + error;
                         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
                         setU2StatusText(message);
-                        showU2StartProgressFailure(message);
+                        showU2StartProgressFailure("install_ime_failed", message);
                         Logger.logWarn(LOG_TAG, "Download AdbKeyboard APK failed: " + error);
                         checkU2ServiceStatus();
                     });
@@ -745,6 +752,7 @@ public class AutomationPanelActivity extends Activity {
             getString(R.string.botdrop_u2_service_status_checking)
         );
         mU2StartProgressDialog.show();
+        AnalyticsManager.logEvent(this, "automation_u2_start_started");
     }
 
     private void setU2StartProgressMessage(@StringRes int messageRes) {
@@ -773,6 +781,7 @@ public class AutomationPanelActivity extends Activity {
             return;
         }
 
+        AnalyticsManager.logEvent(this, "automation_u2_start_completed");
         mU2StartProgressDialog.complete(getString(R.string.botdrop_u2_service_start_command_sent));
         mHandler.postDelayed(() -> {
             if (mU2StartProgressDialog != null && mU2StartProgressDialog.isShowing()) {
@@ -783,12 +792,36 @@ public class AutomationPanelActivity extends Activity {
     }
 
     private void showU2StartProgressFailure(String message) {
+        showU2StartProgressFailure("unknown", message);
+    }
+
+    private void showU2StartProgressFailure(String reason, String message) {
+        AnalyticsManager.logEvent(this, "automation_u2_start_failed", "reason", reason);
         if (mU2StartProgressDialog != null && mU2StartProgressDialog.isShowing()) {
             mU2StartProgressDialog.showError(message, () -> {
                 mU2StartProgressDialog = null;
                 mU2SetupInProgress = false;
             });
         }
+    }
+
+    private String mapU2StartFailureReason(String stepName) {
+        if ("trim apt sources".equals(stepName) || "reinstall dependencies".equals(stepName)) {
+            return "prepare_env_failed";
+        }
+        if ("install u2automator".equals(stepName)) {
+            return "install_u2automator_failed";
+        }
+        if ("install AdbKeyboard IME".equals(stepName)) {
+            return "install_ime_failed";
+        }
+        if ("enable AdbKeyboard IME".equals(stepName)) {
+            return "enable_ime_failed";
+        }
+        if ("start u2.jar".equals(stepName)) {
+            return "start_process_failed";
+        }
+        return "unknown";
     }
 
     private String buildTrimAptSourcesForU2Command() {
@@ -857,10 +890,12 @@ public class AutomationPanelActivity extends Activity {
 
     private void stopU2Service() {
         if (mBotDropService == null || !mBound) {
+            AnalyticsManager.logEvent(this, "automation_u2_stop_failed");
             Toast.makeText(this, getString(R.string.botdrop_service_not_connected), Toast.LENGTH_SHORT).show();
             return;
         }
 
+        AnalyticsManager.logEvent(this, "automation_u2_stop_started");
         setU2ServiceButtonsState(false, false);
         mU2StatusText.setText(getString(R.string.botdrop_u2_service_status_checking));
         Toast.makeText(this, getString(R.string.botdrop_u2_service_stopping), Toast.LENGTH_SHORT).show();
@@ -876,6 +911,7 @@ public class AutomationPanelActivity extends Activity {
                 }
 
                 if (result == null) {
+                    AnalyticsManager.logEvent(this, "automation_u2_stop_failed");
                     Toast.makeText(
                             this,
                             getString(R.string.botdrop_u2_service_stop_failed),
@@ -887,6 +923,7 @@ public class AutomationPanelActivity extends Activity {
                 }
 
                 if (result.success) {
+                    AnalyticsManager.logEvent(this, "automation_u2_stop_completed");
                     Toast.makeText(
                             this,
                             getString(R.string.botdrop_u2_service_stop_command_sent),
@@ -901,6 +938,7 @@ public class AutomationPanelActivity extends Activity {
                             Toast.LENGTH_LONG
                     ).show();
                     Logger.logWarn(LOG_TAG, "Stop u2 service failed: " + shownReason);
+                    AnalyticsManager.logEvent(this, "automation_u2_stop_failed");
                     checkU2ServiceStatus();
                 }
             });

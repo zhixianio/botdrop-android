@@ -27,6 +27,7 @@ import moe.shizuku.manager.R
 import moe.shizuku.manager.ShizukuSettings
 import moe.shizuku.manager.adb.*
 import moe.shizuku.manager.databinding.AdbPairDialogBinding
+import moe.shizuku.manager.utils.BotDropAnalytics
 import rikka.lifecycle.viewModels
 import java.net.ConnectException
 
@@ -39,6 +40,7 @@ class AdbPairDialogFragment : DialogFragment() {
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val context = requireContext()
+        BotDropAnalytics.logEvent(context, "automation_shizuku_pair_dialog_shown")
         binding = AdbPairDialogBinding.inflate(LayoutInflater.from(context))
 
         val builder = MaterialAlertDialogBuilder(context).apply {
@@ -64,6 +66,7 @@ class AdbPairDialogFragment : DialogFragment() {
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).isVisible = false
 
         dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+            BotDropAnalytics.logEvent(it.context, "automation_shizuku_pair_settings_tap")
             val intent = Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             intent.putExtra(":settings:fragment_args_key", "toggle_adb_wireless")
@@ -88,6 +91,7 @@ class AdbPairDialogFragment : DialogFragment() {
 
             val password = binding.pairingCode.editText!!.text.toString()
 
+            BotDropAnalytics.logEvent(context, "automation_shizuku_pair_submit")
             viewModel.run(port, password)
         }
 
@@ -159,6 +163,8 @@ class AdbPairDialogFragment : DialogFragment() {
 @SuppressLint("NewApi")
 private class ViewModel(context: Context) : androidx.lifecycle.ViewModel() {
 
+    private val appContext = context.applicationContext
+
     private val _result = MutableLiveData<Throwable?>()
     val result = _result as LiveData<Throwable?>
 
@@ -188,11 +194,15 @@ private class ViewModel(context: Context) : androidx.lifecycle.ViewModel() {
             AdbPairingClient(host, port, password, key).runCatching {
                 start()
             }.onFailure {
+                BotDropAnalytics.logEvent(appContext, "automation_shizuku_pair_failed", "reason", mapPairingFailure(it))
                 _result.postValue(it)
                 it.printStackTrace()
             }.onSuccess {
                 if (it) {
+                    BotDropAnalytics.logEvent(appContext, "automation_shizuku_pair_completed")
                     _result.postValue(null)
+                } else {
+                    BotDropAnalytics.logEvent(appContext, "automation_shizuku_pair_failed", "reason", "unknown")
                 }
             }
         }
@@ -201,5 +211,14 @@ private class ViewModel(context: Context) : androidx.lifecycle.ViewModel() {
     override fun onCleared() {
         super.onCleared()
         adbMdns.stop()
+    }
+
+    private fun mapPairingFailure(throwable: Throwable): String {
+        return when (throwable) {
+            is ConnectException -> "connect"
+            is AdbInvalidPairingCodeException -> "invalid_code"
+            is AdbKeyException -> "key_store"
+            else -> "unknown"
+        }
     }
 }

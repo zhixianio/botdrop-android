@@ -13,6 +13,7 @@ import moe.shizuku.manager.R
 import moe.shizuku.manager.app.AppActivity
 import moe.shizuku.manager.databinding.ConfirmationDialogBinding
 import moe.shizuku.manager.ktx.toHtml
+import moe.shizuku.manager.utils.BotDropAnalytics
 import moe.shizuku.manager.utils.Logger.LOGGER
 import rikka.core.res.resolveColor
 import rikka.html.text.HtmlCompat
@@ -60,6 +61,7 @@ class RequestPermissionActivity : AppActivity() {
             dialog.show()
         } catch (ignored: Throwable) {
         }
+        BotDropAnalytics.logEvent(this, "automation_shizuku_permission_limited_dialog_shown")
         return false
     }
 
@@ -88,6 +90,7 @@ class RequestPermissionActivity : AppActivity() {
         super.onCreate(savedInstanceState)
 
         if (!waitForBinder()) {
+            BotDropAnalytics.logEvent(this, "automation_shizuku_permission_flow_failed", "reason", "binder_timeout")
             finish()
             return
         }
@@ -97,10 +100,12 @@ class RequestPermissionActivity : AppActivity() {
         val requestCode = intent.getIntExtra("requestCode", -1)
         val ai = intent.getParcelableExtra<ApplicationInfo>("applicationInfo")
         if (uid == -1 || pid == -1 || ai == null) {
+            BotDropAnalytics.logEvent(this, "automation_shizuku_permission_flow_failed", "reason", "invalid_request")
             finish()
             return
         }
         if (!checkSelfPermission()) {
+            BotDropAnalytics.logEvent(this, "automation_shizuku_permission_denied", "mode", "limited")
             setResult(uid, pid, requestCode, allowed = false, onetime = true)
             return
         }
@@ -111,12 +116,15 @@ class RequestPermissionActivity : AppActivity() {
             ai.packageName
         }
 
+        BotDropAnalytics.logScreen(this, "automation_shizuku_permission_request", "RequestPermissionActivity")
         val binding = ConfirmationDialogBinding.inflate(layoutInflater).apply {
             button1.setOnClickListener {
+                BotDropAnalytics.logEvent(this@RequestPermissionActivity, "automation_shizuku_permission_granted", "mode", "always")
                 setResult(uid, pid, requestCode, allowed = true, onetime = false)
                 dialog.dismiss()
             }
             button3.setOnClickListener {
+                BotDropAnalytics.logEvent(this@RequestPermissionActivity, "automation_shizuku_permission_denied", "mode", "onetime")
                 setResult(uid, pid, requestCode, allowed = false, onetime = true)
                 dialog.dismiss()
             }
@@ -131,5 +139,6 @@ class RequestPermissionActivity : AppActivity() {
                 .create()
         dialog.setCanceledOnTouchOutside(false)
         dialog.show()
+        BotDropAnalytics.logEvent(this, "automation_shizuku_permission_dialog_shown")
     }
 }

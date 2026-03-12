@@ -366,7 +366,10 @@ public class DashboardActivity extends Activity {
         }
         if (mQQBotChannelRow != null) {
             mQQBotChannelRow.setOnClickListener(
-                v -> openChannelConfig(ChannelConfigMeta.PLATFORM_QQBOT)
+                v -> {
+                    AnalyticsManager.logEvent(this, "dashboard_channel_tap", "platform", ChannelConfigMeta.PLATFORM_QQBOT);
+                    openChannelConfig(ChannelConfigMeta.PLATFORM_QQBOT);
+                }
             );
         }
 
@@ -2922,13 +2925,21 @@ public class DashboardActivity extends Activity {
 
         dismissOpenclawUpdateDialog();
         final String updateVersion = latestVersion;
+        final String analyticsSource = manualCheck ? "manual" : "auto";
         mOpenclawUpdateDialog = new AlertDialog.Builder(this)
             .setTitle(getString(R.string.botdrop_update_available))
             .setMessage(content)
             .setCancelable(true)
-            .setPositiveButton(R.string.botdrop_update, (d, w) -> startOpenclawUpdate(updateVersion))
-            .setNeutralButton(R.string.botdrop_later, null)
-            .setNegativeButton(R.string.botdrop_dismiss, (d, w) -> dismissOpenclawUpdate(updateVersion))
+            .setPositiveButton(R.string.botdrop_update, (d, w) -> {
+                AnalyticsManager.logEvent(this, "openclaw_update_accept_tap", "source", analyticsSource);
+                startOpenclawUpdate(updateVersion);
+            })
+            .setNeutralButton(R.string.botdrop_later, (d, w) ->
+                AnalyticsManager.logEvent(this, "openclaw_update_later_tap", "source", analyticsSource))
+            .setNegativeButton(R.string.botdrop_dismiss, (d, w) -> {
+                AnalyticsManager.logEvent(this, "openclaw_update_dismiss_tap", "source", analyticsSource);
+                dismissOpenclawUpdate(updateVersion);
+            })
             .setOnDismissListener(dialog -> {
                 if (mOpenclawUpdateDialog == dialog) {
                     mOpenclawUpdateDialog = null;
@@ -2937,6 +2948,7 @@ public class DashboardActivity extends Activity {
             })
             .create();
         mOpenclawUpdateDialog.show();
+        AnalyticsManager.logEvent(this, "openclaw_update_dialog_shown", "source", analyticsSource);
         if (mOpenclawManualCheckRequested) {
             mOpenclawManualCheckRequested = false;
         }
@@ -2982,6 +2994,7 @@ public class DashboardActivity extends Activity {
             mOpenclawVersionManagerDialog.dismiss();
             mOpenclawVersionManagerDialog = null;
         }
+        AnalyticsManager.logEvent(this, "openclaw_update_started");
 
         // Build step-based progress dialog
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_openclaw_update, null);
@@ -3037,6 +3050,7 @@ public class DashboardActivity extends Activity {
 
             @Override
             public void onError(String error) {
+                AnalyticsManager.logEvent(DashboardActivity.this, "openclaw_update_failed");
                 progressDialog.dismiss();
                 setOpenclawVersionManagerBusy(false);
                 refreshStatus();
@@ -3056,6 +3070,7 @@ public class DashboardActivity extends Activity {
                 advanceToStep(OpenclawUpdateProgress.STEP_REFRESHING_MODELS);
                 statusMessage.setText(getString(R.string.botdrop_updated_to_version_refreshing, newVersion));
                 prefetchModelsForUpdate(newVersion, success -> {
+                    AnalyticsManager.logEvent(DashboardActivity.this, "openclaw_update_completed");
                     // Mark all steps complete
                     for (TextView icon : stepIcons) {
                         icon.setText("\u2713");

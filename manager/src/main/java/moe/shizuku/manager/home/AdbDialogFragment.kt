@@ -19,6 +19,7 @@ import moe.shizuku.manager.R
 import moe.shizuku.manager.adb.AdbMdns
 import moe.shizuku.manager.databinding.AdbDialogBinding
 import moe.shizuku.manager.starter.StarterActivity
+import moe.shizuku.manager.utils.BotDropAnalytics
 import moe.shizuku.manager.utils.EnvironmentUtils
 
 @RequiresApi(Build.VERSION_CODES.R)
@@ -30,6 +31,7 @@ class AdbDialogFragment : DialogFragment() {
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val context = requireContext()
+        BotDropAnalytics.logEvent(context, "automation_shizuku_start_dialog_shown")
         binding = AdbDialogBinding.inflate(layoutInflater)
         adbMdns = AdbMdns(context, AdbMdns.TLS_CONNECT) {
             port.postValue(it)
@@ -69,6 +71,7 @@ class AdbDialogFragment : DialogFragment() {
         }
 
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            BotDropAnalytics.logEvent(it.context, "automation_shizuku_start_settings_tap")
             val intent = Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             intent.putExtra(":settings:fragment_args_key", "toggle_adb_wireless")
@@ -89,6 +92,7 @@ class AdbDialogFragment : DialogFragment() {
     }
 
     private fun startAndDismiss(port: Int) {
+        BotDropAnalytics.logEvent(requireContext(), "automation_shizuku_start_submit")
         val host = "127.0.0.1"
         val intent = Intent(context, StarterActivity::class.java).apply {
             putExtra(StarterActivity.EXTRA_IS_ROOT, false)

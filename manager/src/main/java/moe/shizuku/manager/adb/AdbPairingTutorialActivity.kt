@@ -16,6 +16,7 @@ import androidx.core.view.isVisible
 import moe.shizuku.manager.AppConstants
 import moe.shizuku.manager.app.AppBarActivity
 import moe.shizuku.manager.databinding.AdbPairingTutorialActivityBinding
+import moe.shizuku.manager.utils.BotDropAnalytics
 import rikka.compatibility.DeviceCompatibility
 
 @RequiresApi(Build.VERSION_CODES.R)
@@ -32,6 +33,7 @@ class AdbPairingTutorialActivity : AppBarActivity() {
         binding = AdbPairingTutorialActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        BotDropAnalytics.logScreen(this, "automation_shizuku_pair_tutorial", "AdbPairingTutorialActivity")
 
         notificationEnabled = isNotificationEnabled()
 
@@ -47,6 +49,7 @@ class AdbPairingTutorialActivity : AppBarActivity() {
             }
 
             developerOptions.setOnClickListener {
+                BotDropAnalytics.logEvent(context, "automation_shizuku_pair_settings_tap")
                 val intent = Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 intent.putExtra(":settings:fragment_args_key", "toggle_adb_wireless")
@@ -57,6 +60,7 @@ class AdbPairingTutorialActivity : AppBarActivity() {
             }
 
             notificationOptions.setOnClickListener {
+                BotDropAnalytics.logEvent(context, "automation_shizuku_pair_notification_settings_tap")
                 val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                 intent.putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                 try {
@@ -102,6 +106,7 @@ class AdbPairingTutorialActivity : AppBarActivity() {
     }
 
     private fun startPairingService() {
+        BotDropAnalytics.logEvent(this, "automation_shizuku_pair_search_started")
         val intent = AdbPairingService.startIntent(this)
         try {
             startForegroundService(intent)

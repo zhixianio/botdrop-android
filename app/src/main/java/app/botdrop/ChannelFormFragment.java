@@ -22,6 +22,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -328,6 +329,7 @@ public abstract class ChannelFormFragment extends Fragment {
         String guildId
     ) {
         showConnectPendingProgressWithMessage(R.string.botdrop_progress_writing_channel_config);
+        Context context = getContext();
 
         boolean success;
         if (ChannelConfigMeta.PLATFORM_DISCORD.equals(mMeta.platform)) {

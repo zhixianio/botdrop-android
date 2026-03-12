@@ -15,6 +15,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.termux.app.AnalyticsManager;
 import com.termux.shared.logger.Logger;
 
 import java.util.Locale;
@@ -55,21 +56,31 @@ public class ShizukuStatusActivity extends AppCompatActivity {
         statusText = new TextView(this);
         Button refreshButton = new Button(this);
         refreshButton.setText("Refresh");
-        refreshButton.setOnClickListener(v -> updateStatus());
+        refreshButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "automation_shizuku_refresh_tap");
+            updateStatus();
+        });
 
         startButton = new Button(this);
         startButton.setText("Bootstrap Shizuku");
-        startButton.setOnClickListener(v -> startShizuku());
+        startButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "automation_shizuku_bootstrap_tap");
+            startShizuku();
+        });
 
         permissionButton = new Button(this);
         permissionButton.setText("Request Shizuku Permission");
         permissionButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "automation_shizuku_permission_tap");
             requestPermission();
         });
 
         openSettingsButton = new Button(this);
         openSettingsButton.setText("Open App Permissions");
-        openSettingsButton.setOnClickListener(v -> openPermissionsSetting());
+        openSettingsButton.setOnClickListener(v -> {
+            AnalyticsManager.logEvent(this, "automation_shizuku_settings_tap");
+            openPermissionsSetting();
+        });
 
         root.addView(statusText);
         root.addView(refreshButton);
@@ -80,12 +91,14 @@ public class ShizukuStatusActivity extends AppCompatActivity {
         setContentView(root);
 
         setTitle("Shizuku (Single App)");
+        AnalyticsManager.logScreen(this, "automation_shizuku_status", "ShizukuStatusActivity");
         updateStatus();
         autoStartRequested = getIntent() != null && getIntent().getBooleanExtra(EXTRA_AUTO_START, false);
         autoRequestPermissionRequested = getIntent() != null
                 && getIntent().getBooleanExtra(EXTRA_AUTO_REQUEST_PERMISSION, false);
 
         if (autoStartRequested || autoRequestPermissionRequested) {
+            AnalyticsManager.logEvent(this, "automation_shizuku_auto_flow_start");
             startPairingFlow();
         }
 
@@ -167,6 +180,7 @@ public class ShizukuStatusActivity extends AppCompatActivity {
 
     private void requestPermission() {
         if (!Shizuku.pingBinder()) {
+            AnalyticsManager.logEvent(this, "automation_shizuku_permission_blocked", "reason", "binder_not_ready");
             Toast.makeText(this, "Shizuku binder is not ready", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -178,6 +192,7 @@ public class ShizukuStatusActivity extends AppCompatActivity {
             granted = PackageManager.PERMISSION_DENIED;
         }
         if (granted == PackageManager.PERMISSION_GRANTED) {
+            AnalyticsManager.logEvent(this, "automation_shizuku_permission_already_granted");
             Toast.makeText(this, "Shizuku permission already granted", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -213,6 +228,7 @@ public class ShizukuStatusActivity extends AppCompatActivity {
     private void waitAndRequestPermission() {
         if (destroyed) return;
         if (autoRequestPermissionAttempts >= AUTO_REQUEST_MAX_RETRY) {
+            AnalyticsManager.logEvent(this, "automation_shizuku_auto_flow_failed", "reason", "binder_timeout");
             Toast.makeText(this, "Shizuku binder is not ready; please press Bootstrap or reopen", Toast.LENGTH_LONG).show();
             autoFlowStarted = false;
             return;
@@ -260,6 +276,12 @@ public class ShizukuStatusActivity extends AppCompatActivity {
         }
 
         try {
+            AnalyticsManager.logEvent(
+                this,
+                grantResult == PackageManager.PERMISSION_GRANTED
+                    ? "automation_shizuku_permission_granted"
+                    : "automation_shizuku_permission_denied"
+            );
             Toast.makeText(this,
                     grantResult == PackageManager.PERMISSION_GRANTED ? "Permission granted" : "Permission denied",
                     Toast.LENGTH_SHORT).show();

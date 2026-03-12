@@ -6,7 +6,7 @@ Analytics backend: Firebase Analytics / GA4
 
 ## Scope
 
-This document covers the BotDrop Android UI instrumentation added in the launcher, setup funnel, dashboard, and automation panel.
+This document covers the BotDrop Android UI instrumentation added in the launcher, setup funnel, dashboard, automation panel, and the integrated Shizuku `manager` flows.
 
 Sensitive values are intentionally excluded from analytics payloads:
 
@@ -36,6 +36,10 @@ Allowed dimensions are limited to low-cardinality values such as:
 | `screen_view` with `screen_name=setup_channel` | Setup step: channel setup |
 | `screen_view` with `screen_name=dashboard_main` | Main dashboard resumes |
 | `screen_view` with `screen_name=automation_panel` | Automation panel resumes |
+| `screen_view` with `screen_name=automation_shizuku_status` | Fallback internal Shizuku status screen resumes |
+| `screen_view` with `screen_name=automation_shizuku_pair_tutorial` | Integrated Shizuku pairing tutorial screen resumes |
+| `screen_view` with `screen_name=automation_shizuku_starter` | Integrated Shizuku starter screen resumes |
+| `screen_view` with `screen_name=automation_shizuku_permission_request` | Integrated Shizuku permission confirmation screen resumes |
 
 ## Launcher events
 
@@ -70,6 +74,9 @@ Allowed dimensions are limited to low-cardinality values such as:
 | `agent_install_tap` | none | Select install from agent page |
 | `agent_open_dashboard_tap` | none | Open dashboard when OpenClaw already installed |
 | `agent_version_manager_tap` | none | Open version manager |
+| `agent_version_install_started` | none | Start in-place OpenClaw install/update from version manager |
+| `agent_version_install_failed` | none | In-place OpenClaw install/update failed from version manager |
+| `agent_version_install_completed` | none | In-place OpenClaw install/update completed from version manager |
 | `agent_openclaw_link_tap` | none | Open OpenClaw website |
 
 ## Install events
@@ -123,6 +130,7 @@ Known `platform` values:
 - `telegram`
 - `discord`
 - `feishu`
+- `qqbot`
 
 Known `reason` values:
 
@@ -169,10 +177,22 @@ Known `reason` values:
 | `openclaw_update_none_auto` | none | Background/throttled OpenClaw update check found no update |
 | `openclaw_update_available_manual` | none | Manual OpenClaw update check found update |
 | `openclaw_update_none_manual` | none | Manual OpenClaw update check found no update |
+| `openclaw_update_dialog_shown` | `source` | OpenClaw update dialog displayed |
+| `openclaw_update_accept_tap` | `source` | Confirm OpenClaw update from dialog |
+| `openclaw_update_later_tap` | `source` | Choose later from OpenClaw update dialog |
+| `openclaw_update_dismiss_tap` | `source` | Dismiss OpenClaw update permanently from dialog |
+| `openclaw_update_started` | none | Start OpenClaw update progress flow |
+| `openclaw_update_failed` | none | OpenClaw update progress flow failed |
+| `openclaw_update_completed` | none | OpenClaw update progress flow completed |
 | `openclaw_log_tap` | none | Open OpenClaw log viewer |
 | `openclaw_webui_tap` | none | Open OpenClaw Web UI |
 | `openclaw_backup_tap` | none | Start OpenClaw backup flow |
 | `openclaw_restore_tap` | none | Start OpenClaw restore flow |
+
+Known `source` values:
+
+- `auto`
+- `manual`
 
 ## Automation events
 
@@ -182,7 +202,99 @@ Known `reason` values:
 | `automation_open_shizuku_tap` | none | Open Shizuku UI |
 | `automation_permission_tap` | none | Start Shizuku permission diagnosis/request |
 | `automation_u2_start_tap` | none | Start U2 service |
+| `automation_u2_start_started` | none | U2 startup progress dialog shown |
+| `automation_u2_start_completed` | none | U2 startup flow completed |
+| `automation_u2_start_failed` | `reason` | U2 startup flow failed |
 | `automation_u2_stop_tap` | none | Stop U2 service |
+| `automation_u2_stop_started` | none | U2 stop flow started |
+| `automation_u2_stop_completed` | none | U2 stop command succeeded |
+| `automation_u2_stop_failed` | none | U2 stop command failed |
+| `automation_shizuku_status` | via `screen_view` | Fallback internal Shizuku status screen shown |
+| `automation_shizuku_auto_flow_start` | none | Fallback internal Shizuku auto bootstrap/request flow begins |
+| `automation_shizuku_refresh_tap` | none | Tap refresh on fallback internal Shizuku status screen |
+| `automation_shizuku_bootstrap_tap` | none | Tap bootstrap on fallback internal Shizuku status screen |
+| `automation_shizuku_permission_tap` | none | Tap request permission on fallback internal Shizuku status screen |
+| `automation_shizuku_permission_blocked` | `reason` | Fallback internal Shizuku permission request blocked |
+| `automation_shizuku_permission_already_granted` | none | Fallback internal Shizuku permission already granted |
+| `automation_shizuku_permission_granted` | `mode` | Integrated Shizuku permission granted |
+| `automation_shizuku_permission_denied` | `mode` | Integrated Shizuku permission denied |
+| `automation_shizuku_permission_dialog_shown` | none | Integrated Shizuku permission dialog shown |
+| `automation_shizuku_permission_limited_dialog_shown` | none | Integrated Shizuku permission-limited dialog shown |
+| `automation_shizuku_permission_flow_failed` | `reason` | Integrated Shizuku permission flow failed before user action |
+| `automation_shizuku_settings_tap` | none | Open app permission settings from fallback internal Shizuku status screen |
+| `automation_shizuku_pair_tap` | none | Tap integrated Shizuku pair entry |
+| `automation_shizuku_pair_dialog_shown` | none | Pairing dialog shown in multi-display/dialog path |
+| `automation_shizuku_pair_tutorial` | via `screen_view` | Pairing tutorial screen shown |
+| `automation_shizuku_pair_search_started` | none | Pairing service/search started |
+| `automation_shizuku_pair_settings_tap` | none | Open developer settings during pairing flow |
+| `automation_shizuku_pair_notification_settings_tap` | none | Open notification settings during pairing tutorial |
+| `automation_shizuku_pair_submit` | none | Submit pairing code |
+| `automation_shizuku_pair_completed` | none | Pairing succeeded |
+| `automation_shizuku_pair_failed` | `reason` | Pairing failed |
+| `automation_shizuku_start_tap` | optional `source` | Tap integrated Shizuku start entry |
+| `automation_shizuku_start_dialog_shown` | none | Wireless start dialog shown |
+| `automation_shizuku_start_submit` | none | Submit wireless start dialog |
+| `automation_shizuku_starter` | via `screen_view` | Integrated starter screen shown |
+| `automation_shizuku_start_started` | `source` | Integrated Shizuku start flow started |
+| `automation_shizuku_start_completed` | `source` | Integrated Shizuku start flow completed |
+| `automation_shizuku_start_failed` | `reason` | Integrated Shizuku start flow failed |
+| `automation_shizuku_computer_start_tap` | none | Tap “start via computer” card |
+| `automation_shizuku_computer_start_dialog_shown` | none | “start via computer” command dialog shown |
+| `automation_shizuku_computer_start_copy_tap` | none | Copy adb command from “start via computer” dialog |
+| `automation_shizuku_computer_start_send_tap` | none | Share adb command from “start via computer” dialog |
+| `automation_shizuku_stop_menu_tap` | none | Tap “Stop Shizuku” menu item |
+| `automation_shizuku_stop_blocked` | `reason` | Stop action blocked before dialog |
+| `automation_shizuku_stop_dialog_shown` | none | Stop confirmation dialog shown |
+| `automation_shizuku_stop_confirm_tap` | none | Confirm stop Shizuku |
+| `automation_shizuku_stop_cancel_tap` | none | Cancel stop Shizuku |
+| `automation_shizuku_stop_completed` | none | Stop Shizuku completed |
+| `automation_shizuku_stop_failed` | none | Stop Shizuku threw/failed |
+
+Known `reason` values for `automation_u2_start_failed`:
+
+- `service_not_connected`
+- `copy_u2_failed`
+- `prepare_env_failed`
+- `install_u2automator_failed`
+- `install_ime_failed`
+- `enable_ime_failed`
+- `start_process_failed`
+- `unknown`
+
+Known `mode` values:
+
+- `always`
+- `onetime`
+- `limited`
+
+Known `source` values for integrated Shizuku start:
+
+- `wireless`
+- `root`
+
+Known `reason` values for `automation_shizuku_pair_failed`:
+
+- `connect`
+- `invalid_code`
+- `key_store`
+- `unknown`
+
+Known `reason` values for `automation_shizuku_start_failed`:
+
+- `key_store`
+- `not_rooted`
+- `connect`
+- `pair_required`
+- `unknown`
+
+Known `reason` values for `automation_shizuku_permission_flow_failed`:
+
+- `binder_timeout`
+- `invalid_request`
+
+Known `reason` values for `automation_shizuku_permission_blocked` and `automation_shizuku_stop_blocked`:
+
+- `binder_not_ready`
 
 ## Recommended GA4 reports
 
@@ -196,6 +308,10 @@ Known `reason` values:
    compare start/stop/restart tap events vs success/failure events
 5. Update intent:
    compare update check taps vs available/none results
+6. Automation reliability:
+   compare `automation_u2_start_*`, `automation_u2_stop_*`, `automation_shizuku_start_*`, and `automation_shizuku_pair_*`
+7. Shizuku permission outcomes:
+   compare `automation_permission_tap` vs `automation_shizuku_permission_granted/denied`
 
 ## DebugView checklist
 
@@ -228,6 +344,10 @@ Firebase Console -> Analytics -> DebugView
 7. Reach dashboard and confirm `dashboard_main`
 8. Tap Start/Stop/Restart and confirm paired success/failure result events
 9. Tap OpenClaw update check and confirm one of the `openclaw_update_*` result events
+10. Open Automation Panel and confirm `automation_panel`
+11. Run at least one Shizuku path and confirm one of:
+    `automation_shizuku_pair_*`, `automation_shizuku_start_*`, `automation_shizuku_stop_*`
+12. Run U2 start/stop and confirm `automation_u2_*` events
 
 ### 4. Sanity checks
 

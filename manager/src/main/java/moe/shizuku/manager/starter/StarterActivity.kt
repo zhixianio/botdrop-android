@@ -20,6 +20,7 @@ import moe.shizuku.manager.adb.AdbKeyException
 import moe.shizuku.manager.adb.PreferenceAdbKeyStore
 import moe.shizuku.manager.app.AppBarActivity
 import moe.shizuku.manager.databinding.StarterActivityBinding
+import moe.shizuku.manager.utils.BotDropAnalytics
 import rikka.lifecycle.Resource
 import rikka.lifecycle.Status
 import rikka.lifecycle.viewModels
@@ -30,6 +31,8 @@ import javax.net.ssl.SSLProtocolException
 private class NotRootedException : Exception()
 
 class StarterActivity : AppBarActivity() {
+
+    private var analyticsCompletionLogged = false
 
     private val viewModel by viewModels {
         ViewModel(
@@ -48,6 +51,7 @@ class StarterActivity : AppBarActivity() {
 
         val binding = StarterActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        BotDropAnalytics.logScreen(this, "automation_shizuku_starter", "StarterActivity")
 
         viewModel.output.observe(this) {
             val output = it.data!!.trim()
@@ -58,6 +62,10 @@ class StarterActivity : AppBarActivity() {
                 Shizuku.addBinderReceivedListener(object : Shizuku.OnBinderReceivedListener {
                     override fun onBinderReceived() {
                         Shizuku.removeBinderReceivedListener(this)
+                        if (!analyticsCompletionLogged) {
+                            analyticsCompletionLogged = true
+                            BotDropAnalytics.logEvent(this@StarterActivity, "automation_shizuku_start_completed", "source", getAnalyticsSource())
+                        }
                         viewModel.appendOutput("Service started, this window will be automatically closed in 3 seconds")
 
                         window?.decorView?.postDelayed({
@@ -66,6 +74,10 @@ class StarterActivity : AppBarActivity() {
                     }
                 })
             } else if (it.status == Status.ERROR) {
+                if (!analyticsCompletionLogged) {
+                    analyticsCompletionLogged = true
+                    BotDropAnalytics.logEvent(this, "automation_shizuku_start_failed", "reason", mapStartFailure(it.error))
+                }
                 var message = 0
                 when (it.error) {
                     is AdbKeyException -> {
@@ -99,6 +111,20 @@ class StarterActivity : AppBarActivity() {
         const val EXTRA_HOST = "$EXTRA.HOST"
         const val EXTRA_PORT = "$EXTRA.PORT"
     }
+
+    private fun getAnalyticsSource(): String {
+        return if (intent.getBooleanExtra(EXTRA_IS_ROOT, true)) "root" else "wireless"
+    }
+
+    private fun mapStartFailure(error: Throwable?): String {
+        return when (error) {
+            is AdbKeyException -> "key_store"
+            is NotRootedException -> "not_rooted"
+            is ConnectException -> "connect"
+            is SSLProtocolException -> "pair_required"
+            else -> "unknown"
+        }
+    }
 }
 
 private class ViewModel(context: Context, root: Boolean, host: String?, port: Int) : androidx.lifecycle.ViewModel() {
@@ -111,6 +137,7 @@ private class ViewModel(context: Context, root: Boolean, host: String?, port: In
 
     init {
         try {
+            BotDropAnalytics.logEvent(context, "automation_shizuku_start_started", "source", if (root) "root" else "wireless")
             if (root) {
                 startRoot()
             } else {

@@ -19,6 +19,7 @@ import moe.shizuku.manager.ktx.toHtml
 import moe.shizuku.manager.management.appsViewModel
 import moe.shizuku.manager.settings.SettingsActivity
 import moe.shizuku.manager.utils.AppIconCache
+import moe.shizuku.manager.utils.BotDropAnalytics
 import rikka.core.ktx.unsafeLazy
 import rikka.lifecycle.Status
 import rikka.lifecycle.viewModels
@@ -115,19 +116,27 @@ abstract class HomeActivity : AppBarActivity() {
                 true
             }
             R.id.action_stop -> {
+                BotDropAnalytics.logEvent(this, "automation_shizuku_stop_menu_tap")
                 if (!Shizuku.pingBinder()) {
+                    BotDropAnalytics.logEvent(this, "automation_shizuku_stop_blocked", "reason", "binder_not_ready")
                     return true
                 }
                 MaterialAlertDialogBuilder(this)
                     .setMessage(R.string.dialog_stop_message)
                     .setPositiveButton(android.R.string.ok) { _: DialogInterface?, _: Int ->
+                        BotDropAnalytics.logEvent(this, "automation_shizuku_stop_confirm_tap")
                         try {
                             Shizuku.exit()
+                            BotDropAnalytics.logEvent(this, "automation_shizuku_stop_completed")
                         } catch (e: Throwable) {
+                            BotDropAnalytics.logEvent(this, "automation_shizuku_stop_failed")
                         }
                     }
-                    .setNegativeButton(android.R.string.cancel, null)
+                    .setNegativeButton(android.R.string.cancel) { _: DialogInterface?, _: Int ->
+                        BotDropAnalytics.logEvent(this, "automation_shizuku_stop_cancel_tap")
+                    }
                     .show()
+                BotDropAnalytics.logEvent(this, "automation_shizuku_stop_dialog_shown")
                 true
             }
             R.id.action_settings -> {
