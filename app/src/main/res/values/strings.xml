@@ -426,7 +426,7 @@
     <string name="botdrop_connect_start">Connect &amp; Start</string>
     <string name="botdrop_progress_connecting_channel">Preparing channel setup…</string>
     <string name="botdrop_progress_checking_qqbot_plugin">Checking QQ Bot plugin…</string>
-    <string name="botdrop_progress_installing_qqbot_plugin">Installing QQ Bot plugin…</string>
+    <string name="botdrop_progress_installing_qqbot_plugin">Installing QQ Bot plugin (about 1-2 minutes)…</string>
     <string name="botdrop_progress_writing_channel_config">Saving channel configuration…</string>
     <string name="botdrop_progress_deleting_channel_config">Deleting channel configuration…</string>
     <string name="botdrop_skip_for_now">Skip for now</string>

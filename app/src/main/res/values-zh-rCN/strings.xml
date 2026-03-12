@@ -400,7 +400,7 @@
     <string name="botdrop_connect_start">连接并启动</string>
     <string name="botdrop_progress_connecting_channel">正在准备频道配置…</string>
     <string name="botdrop_progress_checking_qqbot_plugin">正在检查 QQ Bot 插件…</string>
-    <string name="botdrop_progress_installing_qqbot_plugin">正在安装 QQ Bot 插件…</string>
+    <string name="botdrop_progress_installing_qqbot_plugin">正在安装 QQ Bot 插件（约 1-2 分钟）…</string>
     <string name="botdrop_progress_writing_channel_config">正在写入频道配置…</string>
     <string name="botdrop_progress_deleting_channel_config">正在删除频道配置…</string>
     <string name="botdrop_skip_for_now">暂时跳过</string>
