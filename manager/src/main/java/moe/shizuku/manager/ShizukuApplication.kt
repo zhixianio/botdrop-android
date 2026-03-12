@@ -20,7 +20,11 @@ open class ShizukuApplication : Application() {
 
             Shell.setDefaultBuilder(Shell.Builder.create().setFlags(Shell.FLAG_REDIRECT_STDERR))
             if (Build.VERSION.SDK_INT >= 28) {
-                HiddenApiBypass.setHiddenApiExemptions("")
+                try {
+                    HiddenApiBypass.setHiddenApiExemptions("")
+                } catch (t: Throwable) {
+                    logd("ShizukuApplication", "HiddenApiBypass unavailable: ${t.javaClass.simpleName}")
+                }
             }
             if (atLeast30) {
                 System.loadLibrary("adb")
