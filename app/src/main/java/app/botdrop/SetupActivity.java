@@ -96,8 +96,10 @@ public class SetupActivity extends AppCompatActivity {
     private View mNavigationBar;
     private Button mBackButton;
     private Button mNextButton;
+    private View mTopActionsBar;
     private Runnable mPendingOpenclawStorageAction;
     private Runnable mPendingOpenclawStorageDeniedAction;
+    private ViewPager2.OnPageChangeCallback mSetupPageChangeCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -108,6 +110,7 @@ public class SetupActivity extends AppCompatActivity {
         mNavigationBar = findViewById(R.id.setup_navigation);
         mBackButton = findViewById(R.id.setup_button_back);
         mNextButton = findViewById(R.id.setup_button_next);
+        mTopActionsBar = findViewById(R.id.setup_top_actions);
         
         // Setup Open Terminal button if it exists in layout
         Button openTerminalBtn = findViewById(R.id.setup_open_terminal);
@@ -119,10 +122,18 @@ public class SetupActivity extends AppCompatActivity {
         mAdapter = new SetupPagerAdapter(this);
         mViewPager.setAdapter(mAdapter);
         mViewPager.setUserInputEnabled(false); // Disable swipe, only programmatic navigation
+        mSetupPageChangeCallback = new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                updateTopActionsVisibilityForStep(position);
+            }
+        };
+        mViewPager.registerOnPageChangeCallback(mSetupPageChangeCallback);
 
         // Start at specified step
         int startStep = getIntent().getIntExtra(EXTRA_START_STEP, STEP_AGENT_SELECT);
         mViewPager.setCurrentItem(startStep, false);
+        updateTopActionsVisibilityForStep(startStep);
 
         // Set up navigation buttons (hidden by default, fragments can show if needed)
         mBackButton.setOnClickListener(v -> {
@@ -168,6 +179,27 @@ public class SetupActivity extends AppCompatActivity {
 
         Logger.logDebug(LOG_TAG, "SetupActivity created, starting at step " + startStep);
 
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (mSetupPageChangeCallback != null && mViewPager != null) {
+            mViewPager.unregisterOnPageChangeCallback(mSetupPageChangeCallback);
+            mSetupPageChangeCallback = null;
+        }
+    }
+
+    private void updateTopActionsVisibilityForStep(int step) {
+        if (mTopActionsBar == null) {
+            return;
+        }
+
+        if (step == STEP_CHANNEL) {
+            mTopActionsBar.setVisibility(View.GONE);
+        } else {
+            mTopActionsBar.setVisibility(View.VISIBLE);
+        }
     }
 
     private void openBotdropUpdatePage() {

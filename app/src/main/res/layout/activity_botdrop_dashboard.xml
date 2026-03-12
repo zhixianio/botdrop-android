@@ -114,156 +114,24 @@
             </LinearLayout>
         </RelativeLayout>
 
-        <!-- Gateway Status Card -->
-        <LinearLayout
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/runtime_mode_tabs"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
             android:background="@drawable/botdrop_card_bg"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingStart="8dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="4dp"
+            android:layout_marginBottom="16dp"
+            app:tabIndicatorColor="@color/botdrop_accent"
+            app:tabIndicatorHeight="2.5dp"
+            app:tabMode="fixed"
+            app:tabGravity="fill"
+            app:tabSelectedTextColor="@color/botdrop_on_background"
+            app:tabTextColor="@color/botdrop_secondary_text" />
 
-                <!-- Status indicator -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <View
-                        android:id="@+id/status_indicator"
-                        android:layout_width="12dp"
-                        android:layout_height="12dp"
-                        android:background="@drawable/status_indicator_stopped" />
-
-                    <TextView
-                        android:id="@+id/status_text"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="12dp"
-                        android:text="@string/botdrop_gateway_stopped"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/botdrop_on_background" />
-                </LinearLayout>
-
-                <!-- Uptime -->
-                <TextView
-                    android:id="@+id/uptime_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="—"
-                    android:textSize="14sp"
-                    android:textColor="@color/botdrop_secondary_text" />
-
-                <!-- OpenClaw version + check button -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:id="@+id/openclaw_version_text"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textSize="13sp"
-                        android:textColor="@color/botdrop_secondary_text" />
-
-                    <TextView
-                        android:id="@+id/btn_check_openclaw_update"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/botdrop_check_openclaw_updates"
-                        android:textSize="13sp"
-                        android:textColor="#1A1A1A"
-                        android:paddingStart="10dp"
-                        android:paddingEnd="10dp"
-                        android:paddingTop="7dp"
-                        android:paddingBottom="7dp"
-                        android:background="@drawable/botdrop_button_bg"
-                        android:gravity="center"
-                        android:layout_marginStart="8dp"
-                        android:minHeight="32dp"
-                        android:clickable="true"
-                        android:focusable="true" />
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:layout_marginTop="8dp">
-
-                    <Button
-                        android:id="@+id/btn_view_openclaw_log"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textAllCaps="false"
-                        android:text="@string/botdrop_view_log"
-                        android:textSize="13sp"
-                        android:textColor="#1A1A1A"
-                        android:paddingStart="10dp"
-                        android:paddingEnd="10dp"
-                        android:paddingTop="7dp"
-                        android:paddingBottom="7dp"
-                        android:background="@drawable/botdrop_button_bg"
-                        android:gravity="center"
-                        android:minHeight="32dp"
-                        android:layout_marginEnd="6dp"
-                        android:clickable="true"
-                        android:focusable="true" />
-
-                    <Button
-                    android:id="@+id/btn_open_openclaw_web_ui"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textAllCaps="false"
-                    android:text="@string/botdrop_open_web_ui"
-                        android:textSize="13sp"
-                        android:textColor="#1A1A1A"
-                        android:paddingStart="10dp"
-                        android:paddingEnd="10dp"
-                        android:paddingTop="7dp"
-                        android:paddingBottom="7dp"
-                    android:background="@drawable/botdrop_button_bg"
-                    android:gravity="center"
-                    android:minHeight="32dp"
-                    android:layout_marginEnd="6dp"
-                    android:clickable="true"
-                    android:focusable="true" />
-
-                <Button
-                    android:id="@+id/btn_open_automation_panel"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textAllCaps="false"
-                    android:text="@string/botdrop_open_automation_panel"
-                    android:textSize="13sp"
-                    android:textColor="#1A1A1A"
-                    android:paddingStart="10dp"
-                    android:paddingEnd="10dp"
-                    android:paddingTop="7dp"
-                    android:paddingBottom="7dp"
-                    android:background="@drawable/botdrop_button_bg"
-                    android:gravity="center"
-                    android:minHeight="32dp"
-                    android:clickable="true"
-                    android:focusable="true" />
-            </LinearLayout>
-
-        </LinearLayout>
-
-        <!-- Startup Notice -->
+        <!-- Shared OpenClaw controls -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -272,266 +140,46 @@
             android:orientation="vertical"
             android:padding="12dp">
 
-            <TextView
+            <!-- Runtime mode specific section -->
+            <FrameLayout
+                android:id="@+id/runtime_mode_fragment_container"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/botdrop_first_interaction_tip"
-                android:textSize="13sp"
-                android:textColor="@color/botdrop_secondary_text" />
+                android:layout_height="wrap_content" />
+
         </LinearLayout>
 
-        <!-- Gateway Error Banner (hidden by default) -->
-        <LinearLayout
-            android:id="@+id/gateway_error_banner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:background="@drawable/botdrop_card_bg"
-            android:orientation="vertical"
-            android:padding="12dp"
-            android:visibility="gone">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="6dp"
-                android:text="@string/botdrop_gateway_issue_detected"
-                android:textColor="@color/status_disconnected"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/gateway_error_text"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="—"
-                android:textColor="@color/botdrop_secondary_text"
-                android:textSize="13sp" />
-        </LinearLayout>
-
-        <!-- Channel Info Card -->
+        <!-- Shared quick actions -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             android:background="@drawable/botdrop_card_bg"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:orientation="horizontal"
+            android:padding="12dp">
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/botdrop_channels"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/botdrop_secondary_text"
-                    android:layout_marginBottom="8dp" />
-
-                <LinearLayout
-                    android:id="@+id/telegram_channel_row"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/botdrop_card_bg"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingVertical="10dp"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:foreground="?android:attr/selectableItemBackground">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/botdrop_channel_telegram"
-                        android:textSize="16sp"
-                        android:textColor="@color/botdrop_on_background" />
-
-                    <TextView
-                        android:id="@+id/telegram_status"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/botdrop_connected"
-                        android:textSize="14sp"
-                        android:textColor="#4CAF50" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="›"
-                        android:textSize="16sp"
-                        android:textColor="@color/botdrop_secondary_text" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/discord_channel_row"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/botdrop_card_bg"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingVertical="10dp"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?android:attr/selectableItemBackground">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/botdrop_channel_discord"
-                        android:textSize="16sp"
-                        android:textColor="@color/botdrop_on_background" />
-
-                    <TextView
-                        android:id="@+id/discord_status"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="○ —"
-                        android:textSize="14sp"
-                        android:textColor="@color/botdrop_secondary_text" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="›"
-                        android:textSize="16sp"
-                        android:textColor="@color/botdrop_secondary_text" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/feishu_channel_row"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:background="@drawable/botdrop_card_bg"
-                    android:paddingVertical="10dp"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:layout_marginTop="4dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?android:attr/selectableItemBackground">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/botdrop_channel_feishu"
-                        android:textSize="16sp"
-                        android:textColor="@color/botdrop_on_background" />
-
-                    <TextView
-                        android:id="@+id/feishu_status"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="○ —"
-                        android:textSize="14sp"
-                        android:textColor="@color/botdrop_secondary_text" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="›"
-                        android:textSize="16sp"
-                        android:textColor="@color/botdrop_secondary_text" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/qqbot_channel_row"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:background="@drawable/botdrop_card_bg"
-                    android:paddingVertical="10dp"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:layout_marginTop="4dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?android:attr/selectableItemBackground">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/botdrop_channel_qqbot"
-                        android:textSize="16sp"
-                        android:textColor="@color/botdrop_on_background" />
-
-                    <TextView
-                        android:id="@+id/qqbot_status"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="○ —"
-                        android:textSize="14sp"
-                        android:textColor="@color/botdrop_secondary_text" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:text="›"
-                        android:textSize="16sp"
-                        android:textColor="@color/botdrop_secondary_text" />
-                </LinearLayout>
-        </LinearLayout>
-
-        <!-- Current Model Section -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/botdrop_current_model"
-            android:textSize="14sp"
-            android:textColor="@color/botdrop_secondary_text"
-            android:fontFamily="sans-serif-medium"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="8dp" />
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardBackgroundColor="@color/botdrop_surface"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="0dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
+            <Button
+                android:id="@+id/btn_open_automation_panel"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="@string/botdrop_open_automation_panel"
+                android:textAllCaps="false"
+                android:background="@drawable/botdrop_button_outline_bg"
+                android:textColor="@color/botdrop_accent" />
 
-                <TextView
-                    android:id="@+id/current_model_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="—"
-                    android:textSize="16sp"
-                    android:textColor="@color/botdrop_primary_text"
-                    android:fontFamily="monospace"
-                    android:layout_marginBottom="12dp" />
+            <Button
+                android:id="@+id/btn_check_openclaw_update"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="@string/botdrop_check_openclaw_updates"
+                android:textAllCaps="false"
+                android:background="@drawable/botdrop_button_outline_bg"
+                android:textColor="@color/botdrop_accent" />
 
-                <Button
-                    android:id="@+id/btn_change_model"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/botdrop_change_model"
-                    android:background="@drawable/botdrop_button_outline_bg"
-                    android:textColor="@color/botdrop_accent"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
+        </LinearLayout>
 
         <!-- Action Buttons -->
         <LinearLayout

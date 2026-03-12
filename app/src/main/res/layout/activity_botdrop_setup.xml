@@ -7,6 +7,7 @@
 
     <!-- Top bar with Open Terminal and Update Check buttons -->
     <LinearLayout
+        android:id="@+id/setup_top_actions"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"

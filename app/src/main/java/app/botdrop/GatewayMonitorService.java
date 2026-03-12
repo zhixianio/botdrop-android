@@ -38,6 +38,7 @@ import com.termux.shared.logger.Logger;
 public class GatewayMonitorService extends Service {
 
     private static final String LOG_TAG = "GatewayMonitorService";
+    public static final String EXTRA_RUNTIME_MODE = "runtime_mode";
     private static final int NOTIFICATION_ID = 1001;
     private static final int APP_UPDATE_NOTIFICATION_ID = 1002;
     private static final int MONITOR_INTERVAL_MS = 30000; // 30 seconds
@@ -47,9 +48,13 @@ public class GatewayMonitorService extends Service {
     private static final long WAKELOCK_REACQUIRE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
     private static final long APP_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L; // 6 hours
     private static final String APP_UPDATE_PREFS_NAME = "botdrop_update";
+    private static final String RUNTIME_MODE_PREFS_NAME = "botdrop_runtime_mode";
+    private static final String KEY_RUNTIME_MODE = "active_runtime_mode";
     private static final String KEY_BG_LAST_APP_UPDATE_CHECK = "bg_last_app_update_check_time";
     private static final String KEY_BG_LAST_APP_UPDATE_NOTIFIED = "bg_last_app_update_notified_version";
     private static final String KEY_DISMISSED_VERSION = "dismissed_version";
+    private static final String RUNTIME_MODE_GATEWAY = "gateway";
+    private static final String RUNTIME_MODE_NODE = "node";
     private static final String UPDATE_NOTIFICATION_CHANNEL_ID = "botdrop_updates";
 
     private Handler mHandler = new Handler(Looper.getMainLooper());
@@ -64,6 +69,7 @@ public class GatewayMonitorService extends Service {
     private int mRestartAttempts = 0;
     private boolean mRestartInFlight = false;
     private boolean mRebindScheduled = false;
+    private String mRuntimeMode = RUNTIME_MODE_GATEWAY;
 
     /**
      * Service connection for binding to BotDropService
@@ -90,11 +96,16 @@ public class GatewayMonitorService extends Service {
 
             // In the background the bound service may be reclaimed. Keep trying to rebind
             // so gateway monitoring continues without requiring the Activity to be foreground.
-            scheduleRebind();
+            if (RUNTIME_MODE_GATEWAY.equals(mRuntimeMode)) {
+                scheduleRebind();
+            }
         }
     };
 
     private void scheduleRebind() {
+        if (RUNTIME_MODE_NODE.equals(mRuntimeMode)) {
+            return;
+        }
         if (mRebindScheduled) return;
         mRebindScheduled = true;
         mHandler.postDelayed(() -> {
@@ -117,6 +128,7 @@ public class GatewayMonitorService extends Service {
     public void onCreate() {
         super.onCreate();
         Logger.logInfo(LOG_TAG, "Service created");
+        mRuntimeMode = loadRuntimeModeFromPrefs();
 
         // Start + bind to BotDropService for command execution. Binding alone can be fragile
         // when the app is backgrounded; starting keeps it alive.
@@ -158,6 +170,11 @@ public class GatewayMonitorService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Logger.logInfo(LOG_TAG, "Service started");
+        updateRuntimeModeFromIntent(intent);
+
+        if (RUNTIME_MODE_NODE.equals(mRuntimeMode)) {
+            updateStatus("Gateway monitor disabled in Node mode");
+        }
 
         // Start foreground service with notification
         Notification notification = buildNotification("BotDrop is running");
@@ -334,6 +351,11 @@ public class GatewayMonitorService extends Service {
      * Check if gateway is running and restart if needed
      */
     private void checkAndRestartGateway() {
+        if (RUNTIME_MODE_NODE.equals(mRuntimeMode)) {
+            Logger.logDebug(LOG_TAG, "Gateway monitor is in Node mode, skipping check/restart");
+            return;
+        }
+        final String monitoringMode = mRuntimeMode;
         // Only proceed if service is bound
         if (!mBotDropServiceBound || mBotDropService == null) {
             Logger.logDebug(LOG_TAG, "BotDropService not bound yet, scheduling rebind");
@@ -357,6 +379,11 @@ public class GatewayMonitorService extends Service {
         try {
             mBotDropService.isGatewayRunning(result -> {
                 try {
+                    if (!RUNTIME_MODE_GATEWAY.equals(monitoringMode) || !RUNTIME_MODE_GATEWAY.equals(mRuntimeMode)) {
+                        Logger.logDebug(LOG_TAG, "Gateway check callback returned after mode switch, skipping");
+                        return;
+                    }
+
                     boolean isRunning = result.success && result.stdout.trim().equals("running");
 
                     if (isRunning) {
@@ -512,5 +539,27 @@ public class GatewayMonitorService extends Service {
             acquireWakeLock();
             Logger.logDebug(LOG_TAG, "WakeLock re-acquired to prevent timeout");
         }
+    }
+
+    private void updateRuntimeModeFromIntent(@Nullable Intent intent) {
+        if (intent == null) {
+            return;
+        }
+        String runtimeMode = intent.getStringExtra(EXTRA_RUNTIME_MODE);
+        if (!RUNTIME_MODE_GATEWAY.equals(runtimeMode) && !RUNTIME_MODE_NODE.equals(runtimeMode)) {
+            return;
+        }
+        if (!runtimeMode.equals(mRuntimeMode)) {
+            Logger.logInfo(LOG_TAG, "Runtime mode changed from " + mRuntimeMode + " to " + runtimeMode);
+        }
+        mRuntimeMode = runtimeMode;
+        getSharedPreferences(RUNTIME_MODE_PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putString(KEY_RUNTIME_MODE, mRuntimeMode)
+            .apply();
+    }
+
+    private String loadRuntimeModeFromPrefs() {
+        return getSharedPreferences(RUNTIME_MODE_PREFS_NAME, MODE_PRIVATE).getString(KEY_RUNTIME_MODE, RUNTIME_MODE_GATEWAY);
     }
 }

@@ -18,6 +18,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.regex.Pattern;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,6 +41,17 @@ public class BotDropService extends Service {
     private static final String BOTDROP_APT_LIST_FILE = BOTDROP_APT_SOURCES_LIST_D + "/botdrop.list";
     private static final long SHARP_INSTALL_RETRY_INTERVAL_MS = 10 * 60 * 1000L;
     private static final String BOTDROP_SHARED_ROOT = "/data/local/tmp/botdrop_tmp";
+    private static final String NODE_STATE_DIR = TermuxConstants.TERMUX_HOME_DIR_PATH + "/.openclaw-node";
+    private static final String NODE_PID_FILE = NODE_STATE_DIR + "/node.pid";
+    // node.json is managed by Node mode settings UI and should not be overwritten on every start.
+    private static final Pattern OPENCLAW_GATEWAY_RUN_PATTERN =
+        Pattern.compile(
+            "(?i)(^|[\\s;&|()])openclaw\\s+gateway\\s+run(?=\\s|$|;|&)"
+        );
+    private static final Pattern OPENCLAW_NODE_RUN_PATTERN =
+        Pattern.compile(
+            "(?i)(^|[\\s;&|()])openclaw\\s+node\\s+run(?=\\s|$|;|&)"
+        );
 
     private final IBinder mBinder = new LocalBinder();
     private final ExecutorService mExecutor = Executors.newSingleThreadExecutor();
@@ -245,6 +257,7 @@ public class BotDropService extends Service {
         if (safeCommand.isEmpty()) {
             return new CommandResult(false, "", "Command is empty", -1);
         }
+        safeCommand = enforceOpenclawRunMutualExclusion(safeCommand);
 
         int timeoutMs = timeoutSeconds > 0 ? timeoutSeconds * 1000 : 60000;
 
@@ -297,6 +310,26 @@ public class BotDropService extends Service {
         }
 
         return executeCommandViaLocal(safeCommand, timeoutSeconds);
+    }
+
+    private String enforceOpenclawRunMutualExclusion(String command) {
+        if (containsOpenclawGatewayRun(command)) {
+            Logger.logInfo(LOG_TAG, "Enforcing exclusivity: stopping OpenClaw Node before Gateway run");
+            return buildStopOpenclawNodeScript() + "\n" + command;
+        }
+        if (containsOpenclawNodeRun(command)) {
+            Logger.logInfo(LOG_TAG, "Enforcing exclusivity: stopping OpenClaw Gateway before Node run");
+            return buildStopGatewayScript() + "\n" + command;
+        }
+        return command;
+    }
+
+    private boolean containsOpenclawGatewayRun(String command) {
+        return OPENCLAW_GATEWAY_RUN_PATTERN.matcher(command).find();
+    }
+
+    private boolean containsOpenclawNodeRun(String command) {
+        return OPENCLAW_NODE_RUN_PATTERN.matcher(command).find();
     }
 
     private boolean shouldExecuteViaShizuku(String command) {
@@ -856,6 +889,8 @@ public class BotDropService extends Service {
             "pkill -TERM -f \"openclaw.*gateway\" 2>/dev/null || true\n" +
             "sleep 1\n" +
             "pkill -9 -f \"openclaw.*gateway\" 2>/dev/null || true\n" +
+            // Keep SSH terminal reachable even when gateway is stopped.
+            "pgrep -x sshd >/dev/null 2>&1 || sshd 2>/dev/null || true\n" +
             "echo stopped\n";
         executeCommand(cmd, callback);
     }
@@ -899,6 +934,85 @@ public class BotDropService extends Service {
             "ps -p $pid -o etime= 2>/dev/null || echo '—'; " +
             "else echo '—'; fi; " +
             "else echo '—'; fi";
+        executeCommand(cmd, callback);
+    }
+
+    public void startNode(CommandCallback callback) {
+        startNode(null, callback);
+    }
+
+    public void startNode(String gatewayHost, CommandCallback callback) {
+        // gatewayHost is no longer consumed by node startup logic.
+        // Kept for backward compatibility with callers still passing host-only.
+        startNodeInternal(null, callback);
+    }
+
+    public void startNode(String gatewayHost, int gatewayPort, boolean gatewayTls, CommandCallback callback) {
+        // gatewayHost/gatewayPort/gatewayTls are intentionally ignored for compatibility.
+        startNodeInternal(null, callback);
+    }
+
+    public void startNodeWithToken(String gatewayToken, CommandCallback callback) {
+        startNodeInternal(gatewayToken, callback);
+    }
+
+    public void startNode(String gatewayHost, int gatewayPort, boolean gatewayTls, String gatewayToken, CommandCallback callback) {
+        // gatewayHost/gatewayPort/gatewayTls are intentionally ignored; startup now uses
+        // saved configuration files and a dedicated OPENCLAW_STATE_DIR.
+        startNodeInternal(gatewayToken, callback);
+    }
+
+    private void startNodeInternal(String gatewayToken, CommandCallback callback) {
+        mExecutor.execute(() -> {
+            CommandResult startResult = executeCommandSync(
+                buildStartNodeScript(gatewayToken)
+            );
+            mHandler.post(() -> callback.onResult(startResult));
+        });
+    }
+
+    public void stopNode(CommandCallback callback) {
+        String cmd = buildStopOpenclawNodeScript();
+        executeCommand(cmd, callback);
+    }
+
+    public void restartNode(CommandCallback callback) {
+        restartNodeInternal((String) null, callback);
+    }
+
+    public void restartNode(String gatewayHost, CommandCallback callback) {
+        restartNodeInternal((String) null, callback);
+    }
+
+    public void restartNode(String gatewayHost, int gatewayPort, boolean gatewayTls, CommandCallback callback) {
+        restartNodeInternal((String) null, callback);
+    }
+
+    public void restartNodeWithToken(String gatewayToken, CommandCallback callback) {
+        restartNodeInternal(gatewayToken, callback);
+    }
+
+    public void restartNode(
+        String gatewayHost, int gatewayPort, boolean gatewayTls, String gatewayToken, CommandCallback callback
+    ) {
+        restartNodeInternal(gatewayToken, callback);
+    }
+
+    private void restartNodeInternal(String gatewayToken, CommandCallback callback) {
+        stopNode(result -> mHandler.postDelayed(() -> startNodeInternal(gatewayToken, callback), 1000));
+    }
+
+    public void isNodeRunning(CommandCallback callback) {
+        String cmd =
+            "if [ -f " + NODE_PID_FILE + " ] && kill -0 $(cat " + NODE_PID_FILE + ") 2>/dev/null; then\n" +
+            "  echo running\n" +
+            "  exit 0\n" +
+            "fi\n" +
+            "if pgrep -f \"openclaw node run\" >/dev/null 2>&1; then\n" +
+            "  echo running\n" +
+            "else\n" +
+            "  echo stopped\n" +
+            "fi\n";
         executeCommand(cmd, callback);
     }
 
@@ -1079,7 +1193,8 @@ public class BotDropService extends Service {
      * instead of executing it, so it can be used from within updateOpenclaw on mExecutor).
      */
     private String buildStopGatewayScript() {
-        return "PID=''\n" +
+        return buildStopOpenclawNodeScript() +
+            "PID=''\n" +
             "if [ -f " + GATEWAY_PID_FILE + " ]; then PID=$(cat " + GATEWAY_PID_FILE + " 2>/dev/null || true); fi\n" +
             "rm -f " + GATEWAY_PID_FILE + "\n" +
             "if [ -n \"$PID\" ]; then\n" +
@@ -1089,7 +1204,25 @@ public class BotDropService extends Service {
             "pkill -TERM -f \"openclaw.*gateway\" 2>/dev/null || true\n" +
             "sleep 1\n" +
             "pkill -9 -f \"openclaw.*gateway\" 2>/dev/null || true\n" +
+            // Keep SSH terminal reachable even when gateway is stopped.
+            "pgrep -x sshd >/dev/null 2>&1 || sshd 2>/dev/null || true\n" +
             "echo stopped\n";
+    }
+
+    private String buildStopOpenclawNodeScript() {
+        return "NODE_PID=''\n" +
+            "if [ -f " + NODE_PID_FILE + " ]; then NODE_PID=$(cat " + NODE_PID_FILE + " 2>/dev/null || true); fi\n" +
+            "rm -f " + NODE_PID_FILE + "\n" +
+            "if [ -n \"$NODE_PID\" ]; then\n" +
+            "  kill \"$NODE_PID\" 2>/dev/null || true\n" +
+            "  pkill -TERM -P \"$NODE_PID\" 2>/dev/null || true\n" +
+            "fi\n" +
+            "pkill -TERM -f \"openclaw node run\" 2>/dev/null || true\n" +
+            "sleep 1\n" +
+            "pkill -9 -f \"openclaw node run\" 2>/dev/null || true\n" +
+            "pkill -TERM -f \"openclaw.*node\" 2>/dev/null || true\n" +
+            "sleep 1\n" +
+            "pkill -9 -f \"openclaw.*node\" 2>/dev/null || true\n";
     }
 
     private String buildKoffiMockPatchScript() {
@@ -1341,6 +1474,61 @@ public class BotDropService extends Service {
             "  cat " + debugLog + "\n" +
             "  exit 1\n" +
             "fi\n";
+    }
+
+    private String buildStartNodeScript(String gatewayToken) {
+        String logDir = NODE_STATE_DIR;
+        String home = TermuxConstants.TERMUX_HOME_DIR_PATH;
+        String prefix = TermuxConstants.TERMUX_PREFIX_DIR_PATH;
+        String nodeLog = logDir + "/node.log";
+        String normalizedGatewayToken = normalizeNodeGatewayToken(gatewayToken);
+        return "mkdir -p " + logDir + "\n" +
+            "export BOTDROP_TERMUX_HOME=" + home + "\n" +
+            "export BOTDROP_SHARED_ROOT=" + BOTDROP_SHARED_ROOT + "\n" +
+            "export HOME=" + home + "\n" +
+            "export PREFIX=" + prefix + "\n" +
+            "export PATH=$PREFIX/bin:$PATH\n" +
+            "export TMPDIR=$PREFIX/tmp\n" +
+            "export SSL_CERT_FILE=$PREFIX/etc/tls/cert.pem\n" +
+            "export NODE_PATH=$PREFIX/lib/node_modules\n" +
+            "export NODE_OPTIONS=--dns-result-order=ipv4first\n" +
+            "export OPENCLAW_STATE_DIR=" + shellQuote(NODE_STATE_DIR) + "\n" +
+            (!normalizedGatewayToken.isEmpty()
+                ? "export OPENCLAW_GATEWAY_TOKEN=" + shellQuote(normalizedGatewayToken) + "\n"
+                : "") +
+            "if [ -x \"$PREFIX/bin/termux-chroot\" ]; then\n" +
+            "  \"$PREFIX/bin/termux-chroot\" openclaw node run >> " + nodeLog + " 2>&1 &\n" +
+            "else\n" +
+            "  openclaw node run >> " + nodeLog + " 2>&1 &\n" +
+            "fi\n" +
+            "NODE_PID=$!\n" +
+            "if [ -n \"$NODE_PID\" ] && kill -0 \"$NODE_PID\" 2>/dev/null; then\n" +
+            "  echo $NODE_PID > " + NODE_PID_FILE + "\n" +
+            "  echo started\n" +
+            "else\n" +
+            "  echo \"node start failed\"\n" +
+            "  rm -f " + NODE_PID_FILE + "\n" +
+            "  sleep 2\n" +
+            "  if pgrep -f \"openclaw node run\" >/dev/null 2>&1; then\n" +
+            "    NODE_PID=$(pgrep -f \"openclaw node run\" | head -n 1)\n" +
+            "    echo $NODE_PID > " + NODE_PID_FILE + "\n" +
+            "    echo started\n" +
+            "  else\n" +
+            "    cat " + nodeLog + "\n" +
+            "    exit 1\n" +
+            "  fi\n" +
+            "fi\n";
+    }
+
+    private String normalizeNodeGatewayToken(String gatewayToken) {
+        if (gatewayToken == null) {
+            return "";
+        }
+        return gatewayToken.trim();
+    }
+
+    private String shellQuote(String value) {
+        return "'" + value.replace("'", "'\"'\"'") + "'";
     }
 
     /**

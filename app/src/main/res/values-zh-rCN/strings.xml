@@ -354,6 +354,7 @@
     <string name="botdrop_loading_models">正在加载模型...</string>
     <string name="botdrop_retry">重试</string>
     <string name="botdrop_openclaw_gateway_log">OpenClaw 网关日志</string>
+    <string name="botdrop_openclaw_node_log">OpenClaw Node 日志</string>
     <string name="botdrop_copy">复制</string>
     <string name="botdrop_stopping_gateway">正在停止网关</string>
     <string name="botdrop_installing_update">正在安装更新</string>
