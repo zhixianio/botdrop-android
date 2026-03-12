@@ -1242,11 +1242,12 @@ public class ModelSelectorDialog extends Dialog {
                 }
             }
 
-            if (keys.size() > MAX_CACHED_KEYS_PER_MODEL) {
-                keys = new ArrayList<>(keys.subList(0, MAX_CACHED_KEYS_PER_MODEL));
-            }
+            String storedProviderKey = BotDropConfig.getApiKey(provider);
+            List<String> mergedKeys = mergeStoredProviderKey(keys, storedProviderKey, MAX_CACHED_KEYS_PER_MODEL);
+            boolean mergedStoredKey = !TextUtils.isEmpty(storedProviderKey) && !mergedKeys.equals(keys);
+            keys = mergedKeys;
 
-            if (!TextUtils.isEmpty(raw) || !legacyKeys.isEmpty()) {
+            if (!TextUtils.isEmpty(raw) || !legacyKeys.isEmpty() || mergedStoredKey) {
                 JSONArray merged = new JSONArray();
                 for (String item : keys) {
                     if (!TextUtils.isEmpty(item)) {
@@ -1265,6 +1266,30 @@ public class ModelSelectorDialog extends Dialog {
         }
 
         return keys;
+    }
+
+    static List<String> mergeStoredProviderKey(List<String> existingKeys, String storedProviderKey, int maxKeys) {
+        List<String> merged = new ArrayList<>();
+        if (existingKeys != null) {
+            for (String key : existingKeys) {
+                String normalized = key == null ? "" : key.trim();
+                if (!normalized.isEmpty() && !merged.contains(normalized)) {
+                    merged.add(normalized);
+                }
+            }
+        }
+
+        String normalizedStoredKey = storedProviderKey == null ? "" : storedProviderKey.trim();
+        if (!normalizedStoredKey.isEmpty()) {
+            merged.remove(normalizedStoredKey);
+            merged.add(0, normalizedStoredKey);
+        }
+
+        if (maxKeys > 0 && merged.size() > maxKeys) {
+            return new ArrayList<>(merged.subList(0, maxKeys));
+        }
+
+        return merged;
     }
 
     private List<String> loadLegacyCachedApiKeys(SharedPreferences prefs, String provider) {
