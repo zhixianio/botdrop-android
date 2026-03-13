@@ -876,6 +876,7 @@ public class AutomationPanelActivity extends Activity {
             + "  echo \"apt command unavailable\" >&2\n"
             + "  exit 1\n"
             + "fi\n"
+            + "apt update\n"
             + "apt install -y " + U2_AUTOMATOR_APT_PACKAGE + "\n"
             + "echo \"u2automator installed\"\n";
     }

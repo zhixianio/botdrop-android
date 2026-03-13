@@ -36,6 +36,7 @@ public class AutomationPanelActivityCommandTest {
     public void testInstallU2AutomatorCommand_usesAptInstall() throws Exception {
         String command = invokePrivateCommand("buildInstallU2AutomatorCommand");
 
+        assertTrue(command.contains("apt update"));
         assertTrue(command.contains("apt install -y python-uiautomator2-botdrop"));
         assertFalse(command.contains("git+https://github.com/lay2dev/uiautomator2.git"));
         assertFalse(command.contains("PIP_CMD"));
