@@ -61,6 +61,7 @@ public class AutomationPanelActivity extends Activity {
     private static final String U2_PING_URL = "http://127.0.0.1:9008/ping";
     private static final String SHIZUKU_BRIDGE_CONFIG_PATH =
         TermuxConstants.TERMUX_HOME_DIR_PATH + "/.openclaw/shizuku-bridge.json";
+    private static final String U2_AUTOMATOR_APT_PACKAGE = "python-uiautomator2-botdrop";
     // Shizuku shell runs as `shell` user and cannot reliably write app-internal dirs.
     private static final String U2_PID_FILE = "/data/local/tmp/u2.pid";
     private static final String U2_RUNTIME_JAR_PATH = "/data/local/tmp/u2.jar";
@@ -588,7 +589,7 @@ public class AutomationPanelActivity extends Activity {
                     return;
                 }
 
-                // Step 3/5: Install u2automator from GitHub (via Termux shell, up to 10 min)
+                // Step 3/5: Install u2automator apt package (via Termux shell, up to 10 min)
                 setU2StatusText(getString(R.string.botdrop_u2_service_prepare_step_verify));
                 setU2StartProgressMessage(R.string.botdrop_u2_service_prepare_step_verify);
                 setU2StartProgressStep(2);
@@ -852,23 +853,18 @@ public class AutomationPanelActivity extends Activity {
             + "  exit 1\n"
             + "fi\n"
             + "apt update\n"
-            + "apt install -y --reinstall python python-pip python-pillow python-lxml libxml2 libxslt libicu zlib libjpeg-turbo\n"
-            + "if ! command -v pip >/dev/null 2>&1 && ! command -v pip3 >/dev/null 2>&1; then\n"
-            + "  echo \"pip not available after reinstall\" >&2\n"
-            + "  exit 1\n"
-            + "fi\n"
+            + "apt install -y --reinstall python python-pillow python-lxml libxml2 libxslt libicu zlib libjpeg-turbo\n"
             + "echo \"dependencies reinstalled\"\n";
     }
 
     private String buildCheckU2AutomatorInstalledCommand() {
         return "export PREFIX=\"" + TermuxConstants.TERMUX_PREFIX_DIR_PATH + "\"\n"
             + "export PATH=\"$PREFIX/bin:$PATH\"\n"
-            + "if command -v pip >/dev/null 2>&1; then\n"
-            + "  pip show uiautomator2 >/dev/null 2>&1 && echo \"installed\" && exit 0\n"
+            + "if ! command -v dpkg >/dev/null 2>&1; then\n"
+            + "  echo \"dpkg command unavailable\" >&2\n"
+            + "  exit 1\n"
             + "fi\n"
-            + "if command -v pip3 >/dev/null 2>&1; then\n"
-            + "  pip3 show uiautomator2 >/dev/null 2>&1 && echo \"installed\" && exit 0\n"
-            + "fi\n"
+            + "dpkg -s " + U2_AUTOMATOR_APT_PACKAGE + " >/dev/null 2>&1 && echo \"installed\" && exit 0\n"
             + "echo \"not installed\" >&2\n"
             + "exit 1\n";
     }
@@ -876,15 +872,11 @@ public class AutomationPanelActivity extends Activity {
     private String buildInstallU2AutomatorCommand() {
         return "export PREFIX=\"" + TermuxConstants.TERMUX_PREFIX_DIR_PATH + "\"\n"
             + "export PATH=\"$PREFIX/bin:$PATH\"\n"
-            + "if command -v pip >/dev/null 2>&1; then\n"
-            + "  PIP_CMD=pip\n"
-            + "elif command -v pip3 >/dev/null 2>&1; then\n"
-            + "  PIP_CMD=pip3\n"
-            + "else\n"
-            + "  echo \"pip not found\" >&2\n"
+            + "if ! command -v apt >/dev/null 2>&1; then\n"
+            + "  echo \"apt command unavailable\" >&2\n"
             + "  exit 1\n"
             + "fi\n"
-            + "$PIP_CMD install --no-cache-dir git+https://github.com/lay2dev/uiautomator2.git\n"
+            + "apt install -y " + U2_AUTOMATOR_APT_PACKAGE + "\n"
             + "echo \"u2automator installed\"\n";
     }
 
