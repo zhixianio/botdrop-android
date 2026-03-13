@@ -506,7 +506,7 @@ public final class TermuxInstaller {
                 "  exit 127\n" +
                 "fi\n" +
                 "export SSL_CERT_FILE=\"$PREFIX/etc/tls/cert.pem\"\n" +
-                "export NODE_OPTIONS=\"--dns-result-order=ipv4first\"\n" +
+                OpenclawVersionUtils.buildNodeOptionsExportCommand() +
                 "exec \"$PREFIX/bin/termux-chroot\" \"$PREFIX/bin/node\" \"$ENTRY\" \"$@\"\n" +
                 "BOTDROP_OPENCLAW_WRAPPER\n" +
                 "    chmod 755 $PREFIX/bin/openclaw\n" +
@@ -553,7 +553,9 @@ public final class TermuxInstaller {
                 "export TMPDIR=$PREFIX/tmp\n" +
                 "mkdir -p $TMPDIR 2>/dev/null\n" +
                 "# Enable Node.js to find globally-installed native addons (e.g. @img/sharp-android-arm64)\n" +
-                "export NODE_PATH=$PREFIX/lib/node_modules\n\n" +
+                "export NODE_PATH=$PREFIX/lib/node_modules\n" +
+                OpenclawVersionUtils.buildNodeOptionsExportCommand() +
+                "\n" +
                 buildBotDropAptSourceScript() +
                 "# `openclaw` is installed as a wrapper that already runs under `termux-chroot`.\n" +
                 "# Avoid nesting proot/termux-chroot which can make commands extremely slow.\n\n" +

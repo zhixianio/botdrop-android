@@ -30,6 +30,15 @@ public final class OpenclawVersionUtils {
     public static final String VERSIONS_COMMAND = buildVersionsCommand();
     public static final String LATEST_VERSION_COMMAND = buildLatestVersionCommand();
     public static final int VERSION_LIST_LIMIT = 20;
+    public static final int OPENCLAW_MIN_OLD_SPACE_MB = 1536;
+    public static final int OPENCLAW_MAX_OLD_SPACE_MB = 4096;
+    private static final int RAM_4_GB_MB = 4 * 1024;
+    private static final int RAM_8_GB_MB = 8 * 1024;
+    private static final int RAM_10_GB_MB = 10 * 1024;
+    private static final int RAM_12_GB_MB = 12 * 1024;
+    private static final int OPENCLAW_OLD_SPACE_6_TO_8_GB_MB = 2048;
+    private static final int OPENCLAW_OLD_SPACE_10_GB_MB = 2560;
+    private static final int OPENCLAW_OLD_SPACE_12_GB_MB = 3072;
 
     public interface VersionListCallback {
         void onResult(List<String> versions, String errorMessage);
@@ -102,6 +111,78 @@ public final class OpenclawVersionUtils {
         return buildNpmCommandPrefix() + "npm install -g " + safePackage + " --ignore-scripts --force";
     }
 
+    public static int recommendOpenclawOldSpaceMb(long totalRamMb) {
+        if (totalRamMb <= RAM_4_GB_MB) {
+            return OPENCLAW_MIN_OLD_SPACE_MB;
+        }
+        if (totalRamMb <= RAM_8_GB_MB) {
+            return OPENCLAW_OLD_SPACE_6_TO_8_GB_MB;
+        }
+        if (totalRamMb <= RAM_10_GB_MB) {
+            return OPENCLAW_OLD_SPACE_10_GB_MB;
+        }
+        if (totalRamMb <= RAM_12_GB_MB) {
+            return OPENCLAW_OLD_SPACE_12_GB_MB;
+        }
+        return OPENCLAW_MAX_OLD_SPACE_MB;
+    }
+
+    public static String buildOpenclawNodeOptions(String existingOptions, long totalRamMb) {
+        String options = normalizeNodeOptions(existingOptions);
+
+        if (!containsNodeOption(options, "--dns-result-order=")) {
+            options = appendNodeOption(options, "--dns-result-order=ipv4first");
+        }
+        if (!containsNodeOption(options, "--max-old-space-size=")) {
+            options = appendNodeOption(options,
+                "--max-old-space-size=" + recommendOpenclawOldSpaceMb(totalRamMb));
+        }
+
+        return options;
+    }
+
+    public static String buildNodeOptionsExportCommand() {
+        return "botdrop_set_openclaw_node_options() {\n"
+            + "  node_options=\"${NODE_OPTIONS:-}\"\n"
+            + "  old_space_mb=\"${BOTDROP_OPENCLAW_MAX_OLD_SPACE_MB:-}\"\n"
+            + "  case \"$old_space_mb\" in\n"
+            + "    ''|*[!0-9]*) old_space_mb='' ;;\n"
+            + "  esac\n"
+            + "  if [ -z \"$old_space_mb\" ]; then\n"
+            + "    mem_total_kb=\"$(awk '/MemTotal:/ {print $2; exit}' /proc/meminfo 2>/dev/null)\"\n"
+            + "    case \"$mem_total_kb\" in\n"
+            + "      ''|*[!0-9]*) mem_total_kb=0 ;;\n"
+            + "    esac\n"
+            + "    if [ \"$mem_total_kb\" -le 0 ]; then\n"
+            + "      old_space_mb=" + OPENCLAW_MIN_OLD_SPACE_MB + "\n"
+            + "    else\n"
+            + "      mem_total_mb=$((mem_total_kb / 1024))\n"
+            + "      if [ \"$mem_total_mb\" -le " + RAM_4_GB_MB + " ]; then\n"
+            + "        old_space_mb=" + OPENCLAW_MIN_OLD_SPACE_MB + "\n"
+            + "      elif [ \"$mem_total_mb\" -le " + RAM_8_GB_MB + " ]; then\n"
+            + "        old_space_mb=" + OPENCLAW_OLD_SPACE_6_TO_8_GB_MB + "\n"
+            + "      elif [ \"$mem_total_mb\" -le " + RAM_10_GB_MB + " ]; then\n"
+            + "        old_space_mb=" + OPENCLAW_OLD_SPACE_10_GB_MB + "\n"
+            + "      elif [ \"$mem_total_mb\" -le " + RAM_12_GB_MB + " ]; then\n"
+            + "        old_space_mb=" + OPENCLAW_OLD_SPACE_12_GB_MB + "\n"
+            + "      else\n"
+            + "        old_space_mb=" + OPENCLAW_MAX_OLD_SPACE_MB + "\n"
+            + "      fi\n"
+            + "    fi\n"
+            + "  fi\n"
+            + "  case \"$node_options\" in\n"
+            + "    *--dns-result-order=*) ;;\n"
+            + "    *) node_options=\"${node_options:+$node_options }--dns-result-order=ipv4first\" ;;\n"
+            + "  esac\n"
+            + "  case \"$node_options\" in\n"
+            + "    *--max-old-space-size=*) ;;\n"
+            + "    *) node_options=\"${node_options:+$node_options }--max-old-space-size=$old_space_mb\" ;;\n"
+            + "  esac\n"
+            + "  export NODE_OPTIONS=\"$node_options\"\n"
+            + "}\n"
+            + "botdrop_set_openclaw_node_options\n";
+    }
+
     private static String buildVersionEnvironmentPrepCommand() {
         return
             "mkdir -p " + BOTDROP_APT_SOURCES_LIST_D + "\n" +
@@ -121,7 +202,8 @@ public final class OpenclawVersionUtils {
     public static String buildNpmCommandPrefix() {
         return buildNpmRegistryResolverFunction()
             + "NPM_CONFIG_REGISTRY=\"$(botdrop_resolve_npm_registry)\"\n"
-            + "export NPM_CONFIG_REGISTRY\n";
+            + "export NPM_CONFIG_REGISTRY\n"
+            + buildNodeOptionsExportCommand();
     }
 
     /**
@@ -389,5 +471,32 @@ public final class OpenclawVersionUtils {
             return "''";
         }
         return "'" + value.replace("'", "'\"'\"'") + "'";
+    }
+
+    private static String normalizeNodeOptions(String options) {
+        if (TextUtils.isEmpty(options)) {
+            return "";
+        }
+        return options.trim().replaceAll("\\s+", " ");
+    }
+
+    private static boolean containsNodeOption(String options, String prefix) {
+        if (TextUtils.isEmpty(options) || TextUtils.isEmpty(prefix)) {
+            return false;
+        }
+        String[] tokens = options.split("\\s+");
+        for (String token : tokens) {
+            if (token.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String appendNodeOption(String options, String option) {
+        if (TextUtils.isEmpty(options)) {
+            return option;
+        }
+        return options + " " + option;
     }
 }
