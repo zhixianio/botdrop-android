@@ -164,4 +164,13 @@ public class OpenclawVersionUtilsTest {
         assertTrue(script.contains("--dns-result-order=ipv4first"));
         assertTrue(script.contains("--max-old-space-size="));
     }
+
+    @Test
+    public void testBuildNodeOptionsExportCommand_withPrecomputedOldSpace() {
+        String script = OpenclawVersionUtils.buildNodeOptionsExportCommand(2048);
+
+        assertTrue(script.startsWith("export BOTDROP_OPENCLAW_MAX_OLD_SPACE_MB=2048\n"));
+        assertTrue(script.contains("--dns-result-order=ipv4first"));
+        assertTrue(script.contains("--max-old-space-size="));
+    }
 }

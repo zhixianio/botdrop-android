@@ -36,7 +36,7 @@ public final class OpenclawVersionUtils {
     private static final int RAM_8_GB_MB = 8 * 1024;
     private static final int RAM_10_GB_MB = 10 * 1024;
     private static final int RAM_12_GB_MB = 12 * 1024;
-    private static final int OPENCLAW_OLD_SPACE_6_TO_8_GB_MB = 2048;
+    private static final int OPENCLAW_OLD_SPACE_UP_TO_8_GB_MB = 2048;
     private static final int OPENCLAW_OLD_SPACE_10_GB_MB = 2560;
     private static final int OPENCLAW_OLD_SPACE_12_GB_MB = 3072;
 
@@ -116,7 +116,7 @@ public final class OpenclawVersionUtils {
             return OPENCLAW_MIN_OLD_SPACE_MB;
         }
         if (totalRamMb <= RAM_8_GB_MB) {
-            return OPENCLAW_OLD_SPACE_6_TO_8_GB_MB;
+            return OPENCLAW_OLD_SPACE_UP_TO_8_GB_MB;
         }
         if (totalRamMb <= RAM_10_GB_MB) {
             return OPENCLAW_OLD_SPACE_10_GB_MB;
@@ -141,6 +141,15 @@ public final class OpenclawVersionUtils {
         return options;
     }
 
+    /**
+     * Build NODE_OPTIONS export with a pre-computed heap size from Java layer.
+     * This avoids relying on /proc/meminfo inside proot/chroot where it may be unreliable.
+     */
+    public static String buildNodeOptionsExportCommand(int oldSpaceMb) {
+        return "export BOTDROP_OPENCLAW_MAX_OLD_SPACE_MB=" + oldSpaceMb + "\n"
+            + buildNodeOptionsExportCommand();
+    }
+
     public static String buildNodeOptionsExportCommand() {
         return "botdrop_set_openclaw_node_options() {\n"
             + "  node_options=\"${NODE_OPTIONS:-}\"\n"
@@ -160,7 +169,7 @@ public final class OpenclawVersionUtils {
             + "      if [ \"$mem_total_mb\" -le " + RAM_4_GB_MB + " ]; then\n"
             + "        old_space_mb=" + OPENCLAW_MIN_OLD_SPACE_MB + "\n"
             + "      elif [ \"$mem_total_mb\" -le " + RAM_8_GB_MB + " ]; then\n"
-            + "        old_space_mb=" + OPENCLAW_OLD_SPACE_6_TO_8_GB_MB + "\n"
+            + "        old_space_mb=" + OPENCLAW_OLD_SPACE_UP_TO_8_GB_MB + "\n"
             + "      elif [ \"$mem_total_mb\" -le " + RAM_10_GB_MB + " ]; then\n"
             + "        old_space_mb=" + OPENCLAW_OLD_SPACE_10_GB_MB + "\n"
             + "      elif [ \"$mem_total_mb\" -le " + RAM_12_GB_MB + " ]; then\n"

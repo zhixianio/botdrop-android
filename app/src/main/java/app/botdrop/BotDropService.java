@@ -669,7 +669,7 @@ public class BotDropService extends Service {
                "export TMPDIR=$PREFIX/tmp\n" +
                "export SSL_CERT_FILE=$PREFIX/etc/tls/cert.pem\n" +
                "export NODE_PATH=$PREFIX/lib/node_modules\n" +
-               OpenclawVersionUtils.buildNodeOptionsExportCommand() +
+               buildNodeOptionsExport() +
                command;
     }
 
@@ -687,7 +687,7 @@ public class BotDropService extends Service {
                "export TMPDIR=$PREFIX/tmp\n" +
                "export SSL_CERT_FILE=$PREFIX/etc/tls/cert.pem\n" +
                "export NODE_PATH=$PREFIX/lib/node_modules\n" +
-               OpenclawVersionUtils.buildNodeOptionsExportCommand() +
+               buildNodeOptionsExport() +
                // `openclaw` is installed as a wrapper that already runs under `termux-chroot`.
                // Avoid nesting proot/termux-chroot, which can stall gateway startup for minutes.
                "openclaw " + openclawArgs;
@@ -945,12 +945,14 @@ public class BotDropService extends Service {
                 Logger.logInfo(LOG_TAG, "Update: running npm install");
                 notifyUpdateStep(callback, "Installing update...");
                 String prefix = TermuxConstants.TERMUX_PREFIX_DIR_PATH;
+                int oldSpaceMb = OpenclawVersionUtils.recommendOpenclawOldSpaceMb(getDeviceTotalRamMb());
                 String npmCmd =
                     "export PREFIX=" + prefix + "\n" +
                     "export HOME=" + TermuxConstants.TERMUX_HOME_DIR_PATH + "\n" +
                     "export PATH=$PREFIX/bin:$PATH\n" +
                     "export TMPDIR=$PREFIX/tmp\n" +
                     "export SSL_CERT_FILE=$PREFIX/etc/tls/cert.pem\n" +
+                    "export BOTDROP_OPENCLAW_MAX_OLD_SPACE_MB=" + oldSpaceMb + "\n" +
                     OpenclawVersionUtils.buildNpmInstallCommand(packageVersion) + " 2>&1\n";
                 CommandResult npmResult = executeCommandSync(npmCmd, 300);
                 if (!npmResult.success) {
@@ -1323,7 +1325,7 @@ public class BotDropService extends Service {
             "export TMPDIR=$PREFIX/tmp\n" +
             "export SSL_CERT_FILE=$PREFIX/etc/tls/cert.pem\n" +
             "export NODE_PATH=$PREFIX/lib/node_modules\n" +
-            OpenclawVersionUtils.buildNodeOptionsExportCommand() +
+            buildNodeOptionsExport() +
             "echo \"=== Environment before chroot ===\" >&2\n" +
             "echo \"SSL_CERT_FILE=$SSL_CERT_FILE\" >&2\n" +
             "echo \"NODE_PATH=$NODE_PATH\" >&2\n" +
@@ -1388,10 +1390,20 @@ public class BotDropService extends Service {
         return OpenclawVersionUtils.buildOpenclawNodeOptions(existingOptions, getDeviceTotalRamMb());
     }
 
+    /**
+     * Build NODE_OPTIONS shell export with heap size pre-computed from ActivityManager.
+     * Avoids relying on /proc/meminfo which may be unreliable inside proot/chroot.
+     */
+    private String buildNodeOptionsExport() {
+        int oldSpaceMb = OpenclawVersionUtils.recommendOpenclawOldSpaceMb(getDeviceTotalRamMb());
+        return OpenclawVersionUtils.buildNodeOptionsExportCommand(oldSpaceMb);
+    }
+
     private long getDeviceTotalRamMb() {
         try {
             ActivityManager activityManager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
             if (activityManager == null) {
+                Logger.logWarn(LOG_TAG, "ActivityManager unavailable, using fallback heap size");
                 return 0L;
             }
 
