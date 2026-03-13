@@ -36,6 +36,8 @@ public final class OpenclawVersionUtils {
     private static final int RAM_8_GB_MB = 8 * 1024;
     private static final int RAM_10_GB_MB = 10 * 1024;
     private static final int RAM_12_GB_MB = 12 * 1024;
+    private static final String OPENCLAW_DEFAULT_OLD_SPACE_ENV =
+        "BOTDROP_OPENCLAW_DEFAULT_MAX_OLD_SPACE_MB";
     private static final int OPENCLAW_OLD_SPACE_UP_TO_8_GB_MB = 2048;
     private static final int OPENCLAW_OLD_SPACE_10_GB_MB = 2560;
     private static final int OPENCLAW_OLD_SPACE_12_GB_MB = 3072;
@@ -111,6 +113,11 @@ public final class OpenclawVersionUtils {
         return buildNpmCommandPrefix() + "npm install -g " + safePackage + " --ignore-scripts --force";
     }
 
+    public static String buildNpmInstallCommand(String packageSpec, int oldSpaceMb) {
+        String safePackage = shellQuoteSingle(TextUtils.isEmpty(packageSpec) ? "openclaw@latest" : packageSpec);
+        return buildNpmCommandPrefix(oldSpaceMb) + "npm install -g " + safePackage + " --ignore-scripts --force";
+    }
+
     public static int recommendOpenclawOldSpaceMb(long totalRamMb) {
         if (totalRamMb <= RAM_4_GB_MB) {
             return OPENCLAW_MIN_OLD_SPACE_MB;
@@ -146,14 +153,15 @@ public final class OpenclawVersionUtils {
      * This avoids relying on /proc/meminfo inside proot/chroot where it may be unreliable.
      */
     public static String buildNodeOptionsExportCommand(int oldSpaceMb) {
-        return "export BOTDROP_OPENCLAW_MAX_OLD_SPACE_MB=" + oldSpaceMb + "\n"
+        return "export " + OPENCLAW_DEFAULT_OLD_SPACE_ENV + "=" + oldSpaceMb + "\n"
             + buildNodeOptionsExportCommand();
     }
 
     public static String buildNodeOptionsExportCommand() {
         return "botdrop_set_openclaw_node_options() {\n"
             + "  node_options=\"${NODE_OPTIONS:-}\"\n"
-            + "  old_space_mb=\"${BOTDROP_OPENCLAW_MAX_OLD_SPACE_MB:-}\"\n"
+            + "  old_space_mb=\"${BOTDROP_OPENCLAW_MAX_OLD_SPACE_MB:-${"
+            + OPENCLAW_DEFAULT_OLD_SPACE_ENV + ":-}}\"\n"
             + "  case \"$old_space_mb\" in\n"
             + "    ''|*[!0-9]*) old_space_mb='' ;;\n"
             + "  esac\n"
@@ -213,6 +221,13 @@ public final class OpenclawVersionUtils {
             + "NPM_CONFIG_REGISTRY=\"$(botdrop_resolve_npm_registry)\"\n"
             + "export NPM_CONFIG_REGISTRY\n"
             + buildNodeOptionsExportCommand();
+    }
+
+    public static String buildNpmCommandPrefix(int oldSpaceMb) {
+        return buildNpmRegistryResolverFunction()
+            + "NPM_CONFIG_REGISTRY=\"$(botdrop_resolve_npm_registry)\"\n"
+            + "export NPM_CONFIG_REGISTRY\n"
+            + buildNodeOptionsExportCommand(oldSpaceMb);
     }
 
     /**

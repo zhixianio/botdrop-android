@@ -445,7 +445,7 @@ public class AgentSelectionFragment extends Fragment {
         }
         SharedPreferences prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putString(KEY_OPENCLAW_VERSION, installVersion).apply();
-        TermuxInstaller.createBotDropScripts(installVersion);
+        TermuxInstaller.createBotDropScripts(ctx, installVersion);
 
         SetupActivity activity = (SetupActivity) getActivity();
         if (activity != null && !activity.isFinishing()) {
@@ -610,7 +610,7 @@ public class AgentSelectionFragment extends Fragment {
                     + getString(R.string.botdrop_reset_to_latest) + "?")
                 .setPositiveButton(R.string.botdrop_reset_to_latest, (d, w) -> {
                     prefs.edit().remove(KEY_OPENCLAW_VERSION).apply();
-                    TermuxInstaller.createBotDropScripts("openclaw@latest");
+                    TermuxInstaller.createBotDropScripts(ctx, "openclaw@latest");
                     Toast.makeText(ctx, getString(R.string.botdrop_set_to_latest, "openclaw@latest"), Toast.LENGTH_SHORT).show();
                     Logger.logInfo(LOG_TAG, "OpenClaw version reset to latest");
                 })
@@ -622,7 +622,7 @@ public class AgentSelectionFragment extends Fragment {
                 .setMessage(getString(R.string.botdrop_pin_install_version, PINNED_VERSION))
                 .setPositiveButton(R.string.botdrop_pin, (d, w) -> {
                     prefs.edit().putString(KEY_OPENCLAW_VERSION, PINNED_VERSION).apply();
-                    TermuxInstaller.createBotDropScripts(PINNED_VERSION);
+                    TermuxInstaller.createBotDropScripts(ctx, PINNED_VERSION);
                     Toast.makeText(ctx, getString(R.string.botdrop_set_to_latest, PINNED_VERSION), Toast.LENGTH_SHORT).show();
                     Logger.logInfo(LOG_TAG, "OpenClaw version pinned to " + PINNED_VERSION);
                 })

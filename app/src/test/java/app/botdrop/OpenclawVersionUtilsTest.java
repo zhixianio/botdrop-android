@@ -169,8 +169,18 @@ public class OpenclawVersionUtilsTest {
     public void testBuildNodeOptionsExportCommand_withPrecomputedOldSpace() {
         String script = OpenclawVersionUtils.buildNodeOptionsExportCommand(2048);
 
-        assertTrue(script.startsWith("export BOTDROP_OPENCLAW_MAX_OLD_SPACE_MB=2048\n"));
+        assertTrue(script.startsWith("export BOTDROP_OPENCLAW_DEFAULT_MAX_OLD_SPACE_MB=2048\n"));
+        assertTrue(script.contains(
+            "old_space_mb=\"${BOTDROP_OPENCLAW_MAX_OLD_SPACE_MB:-${BOTDROP_OPENCLAW_DEFAULT_MAX_OLD_SPACE_MB:-}}\""));
         assertTrue(script.contains("--dns-result-order=ipv4first"));
         assertTrue(script.contains("--max-old-space-size="));
+    }
+
+    @Test
+    public void testBuildNpmInstallCommand_withPrecomputedOldSpace() {
+        String command = OpenclawVersionUtils.buildNpmInstallCommand("openclaw@latest", 3072);
+
+        assertTrue(command.contains("export BOTDROP_OPENCLAW_DEFAULT_MAX_OLD_SPACE_MB=3072\n"));
+        assertTrue(command.contains("npm install -g 'openclaw@latest' --ignore-scripts --force"));
     }
 }

@@ -944,16 +944,13 @@ public class BotDropService extends Service {
                 // Step 2: npm install
                 Logger.logInfo(LOG_TAG, "Update: running npm install");
                 notifyUpdateStep(callback, "Installing update...");
-                String prefix = TermuxConstants.TERMUX_PREFIX_DIR_PATH;
                 int oldSpaceMb = OpenclawVersionUtils.recommendOpenclawOldSpaceMb(getDeviceTotalRamMb());
-                String npmCmd =
-                    "export PREFIX=" + prefix + "\n" +
-                    "export HOME=" + TermuxConstants.TERMUX_HOME_DIR_PATH + "\n" +
-                    "export PATH=$PREFIX/bin:$PATH\n" +
-                    "export TMPDIR=$PREFIX/tmp\n" +
-                    "export SSL_CERT_FILE=$PREFIX/etc/tls/cert.pem\n" +
-                    "export BOTDROP_OPENCLAW_MAX_OLD_SPACE_MB=" + oldSpaceMb + "\n" +
-                    OpenclawVersionUtils.buildNpmInstallCommand(packageVersion) + " 2>&1\n";
+                String npmCmd = "export PREFIX=" + TermuxConstants.TERMUX_PREFIX_DIR_PATH + "\n"
+                    + "export HOME=" + TermuxConstants.TERMUX_HOME_DIR_PATH + "\n"
+                    + "export PATH=$PREFIX/bin:$PATH\n"
+                    + "export TMPDIR=$PREFIX/tmp\n"
+                    + "export SSL_CERT_FILE=$PREFIX/etc/tls/cert.pem\n"
+                    + OpenclawVersionUtils.buildNpmInstallCommand(packageVersion, oldSpaceMb) + " 2>&1\n";
                 CommandResult npmResult = executeCommandSync(npmCmd, 300);
                 if (!npmResult.success) {
                     String tail = extractTail(npmResult.stdout, 15);
@@ -968,6 +965,7 @@ public class BotDropService extends Service {
                 // doesn't work on Android/proot. We must recreate the custom wrapper.
                 Logger.logInfo(LOG_TAG, "Update: recreating openclaw wrapper");
                 notifyUpdateStep(callback, "Finalizing...");
+                String prefix = TermuxConstants.TERMUX_PREFIX_DIR_PATH;
                 String binPrefix = TermuxConstants.TERMUX_BIN_PREFIX_DIR_PATH;
                 String wrapperCmd =
                     "export PREFIX=" + prefix + "\n" +
@@ -989,7 +987,7 @@ public class BotDropService extends Service {
                     "  exit 127\n" +
                     "fi\n" +
                     "export SSL_CERT_FILE=\"$PREFIX/etc/tls/cert.pem\"\n" +
-                    OpenclawVersionUtils.buildNodeOptionsExportCommand() +
+                    buildNodeOptionsExport() +
                     "exec \"$PREFIX/bin/termux-chroot\" \"$PREFIX/bin/node\" \"$ENTRY\" \"$@\"\n" +
                     "BOTDROP_OPENCLAW_WRAPPER\n" +
                     "chmod 755 $PREFIX/bin/openclaw\n" +

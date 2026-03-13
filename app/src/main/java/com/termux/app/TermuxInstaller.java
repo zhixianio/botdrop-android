@@ -1,5 +1,6 @@
 package com.termux.app;
 
+import android.app.ActivityManager;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
@@ -120,7 +121,7 @@ public final class TermuxInstaller {
                 Logger.logInfo(LOG_TAG, "The termux prefix directory \"" + TERMUX_PREFIX_DIR_PATH + "\" exists but is empty or only contains specific unimportant files.");
             } else {
                 // Upgrade path: refresh BotDrop scripts and force BotDrop APT sources.
-                createBotDropScripts(openclawVersion);
+                createBotDropScripts(activity, openclawVersion);
                 whenDone.run();
                 return;
             }
@@ -240,7 +241,7 @@ public final class TermuxInstaller {
                     TermuxShellEnvironment.writeEnvironmentToFile(activity);
 
                     // Create BotDrop install script and environment
-                    createBotDropScripts(openclawVersion);
+                    createBotDropScripts(activity, openclawVersion);
 
                     activity.runOnUiThread(whenDone);
 
@@ -419,8 +420,10 @@ public final class TermuxInstaller {
      *   BOTDROP_COMPLETE
      *   BOTDROP_ERROR:message
      */
-    public static void createBotDropScripts(String openclawVersion) {
+    public static void createBotDropScripts(Context context, String openclawVersion) {
         try {
+            int oldSpaceMb = OpenclawVersionUtils.recommendOpenclawOldSpaceMb(getDeviceTotalRamMb(context));
+
             // --- 1. Create install.sh ---
 
             File botdropDir = new File(TERMUX_PREFIX_DIR_PATH + "/share/botdrop");
@@ -484,7 +487,7 @@ public final class TermuxInstaller {
                 "echo \"BOTDROP_STEP:2:START:Installing OpenClaw\"\n" +
                 "rm -rf $PREFIX/lib/node_modules/openclaw 2>/dev/null\n" +
                 "\n" +
-                "NPM_OUTPUT=$(" + OpenclawVersionUtils.buildNpmInstallCommand(openclawVersion) + " 2>&1)\n" +
+                "NPM_OUTPUT=$(" + OpenclawVersionUtils.buildNpmInstallCommand(openclawVersion, oldSpaceMb) + " 2>&1)\n" +
                 "NPM_EXIT=$?\n" +
                 "if [ $NPM_EXIT -eq 0 ]; then\n" +
                 "    # Create a stable openclaw wrapper (npm-generated shim can be broken on Android/proot)\n" +
@@ -506,7 +509,7 @@ public final class TermuxInstaller {
                 "  exit 127\n" +
                 "fi\n" +
                 "export SSL_CERT_FILE=\"$PREFIX/etc/tls/cert.pem\"\n" +
-                OpenclawVersionUtils.buildNodeOptionsExportCommand() +
+                OpenclawVersionUtils.buildNodeOptionsExportCommand(oldSpaceMb) +
                 "exec \"$PREFIX/bin/termux-chroot\" \"$PREFIX/bin/node\" \"$ENTRY\" \"$@\"\n" +
                 "BOTDROP_OPENCLAW_WRAPPER\n" +
                 "    chmod 755 $PREFIX/bin/openclaw\n" +
@@ -554,7 +557,7 @@ public final class TermuxInstaller {
                 "mkdir -p $TMPDIR 2>/dev/null\n" +
                 "# Enable Node.js to find globally-installed native addons (e.g. @img/sharp-android-arm64)\n" +
                 "export NODE_PATH=$PREFIX/lib/node_modules\n" +
-                OpenclawVersionUtils.buildNodeOptionsExportCommand() +
+                OpenclawVersionUtils.buildNodeOptionsExportCommand(oldSpaceMb) +
                 "\n" +
                 buildBotDropAptSourceScript() +
                 "# `openclaw` is installed as a wrapper that already runs under `termux-chroot`.\n" +
@@ -593,6 +596,28 @@ public final class TermuxInstaller {
             "        rm -f \"$f\"\n" +
             "    fi\n" +
             "done\n";
+    }
+
+    private static long getDeviceTotalRamMb(Context context) {
+        try {
+            ActivityManager activityManager =
+                (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+            if (activityManager == null) {
+                Logger.logWarn(LOG_TAG, "ActivityManager unavailable, using fallback heap size");
+                return 0L;
+            }
+
+            ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo();
+            activityManager.getMemoryInfo(memoryInfo);
+            if (memoryInfo.totalMem <= 0) {
+                return 0L;
+            }
+
+            return memoryInfo.totalMem / (1024L * 1024L);
+        } catch (Exception e) {
+            Logger.logWarn(LOG_TAG, "Failed to read total RAM, using fallback heap size: " + e.getMessage());
+            return 0L;
+        }
     }
 
 }
