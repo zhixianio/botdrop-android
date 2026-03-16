@@ -183,4 +183,33 @@ public class OpenclawVersionUtilsTest {
         assertTrue(command.contains("export BOTDROP_OPENCLAW_DEFAULT_MAX_OLD_SPACE_MB=3072\n"));
         assertTrue(command.contains("npm install -g 'openclaw@latest' --ignore-scripts --force"));
     }
+
+    @Test
+    public void testBuildNpmAwareCommand_injectsRegistryResolver() {
+        String command = OpenclawVersionUtils.buildNpmAwareCommand(
+            "openclaw plugins install @sliverp/qqbot@latest");
+
+        assertTrue(command.contains("botdrop_resolve_npm_registry()"));
+        assertTrue(command.contains("export NPM_CONFIG_REGISTRY"));
+        assertTrue(command.contains("--dns-result-order=ipv4first"));
+        assertTrue(command.endsWith("openclaw plugins install @sliverp/qqbot@latest"));
+    }
+
+    @Test
+    public void testBuildNpmAwareCommand_withPrecomputedOldSpace() {
+        String command = OpenclawVersionUtils.buildNpmAwareCommand("npm install -g sharp@0.34.5", 2560);
+
+        assertTrue(command.contains("export BOTDROP_OPENCLAW_DEFAULT_MAX_OLD_SPACE_MB=2560\n"));
+        assertTrue(command.contains("export NPM_CONFIG_REGISTRY"));
+        assertTrue(command.endsWith("npm install -g sharp@0.34.5"));
+    }
+
+    @Test
+    public void testBuildNpmAwareCommand_prefersMirrorForCnExit() {
+        String command = OpenclawVersionUtils.buildNpmAwareCommand("npm install -g openclaw@latest");
+
+        assertTrue(command.contains("country=\"$(curl -m 2 -fsSL https://ipinfo.io/country"));
+        assertTrue(command.contains("if [ \"$country\" = \"CN\" ] && [ \"$npmmirror_probe\" = \"200\" ]; then"));
+        assertTrue(command.contains("resolved=\"$cn_registry\""));
+    }
 }

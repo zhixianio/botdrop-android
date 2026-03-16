@@ -1218,12 +1218,14 @@ public class BotDropService extends Service {
             "    exit 1\n" +
             "fi\n" +
             "# Install sharp npm package (--ignore-scripts since native addon is from apt)\n" +
-            "NPM_OUTPUT=$(npm install -g sharp@0.34.5 --ignore-scripts 2>&1)\n" +
-            "NPM_EXIT=$?\n" +
-            "if [ $NPM_EXIT -ne 0 ]; then\n" +
-            "    echo \"sharp npm install failed (exit $NPM_EXIT): $NPM_OUTPUT\"\n" +
-            "    exit 1\n" +
-            "fi\n" +
+            OpenclawVersionUtils.buildNpmAwareCommand(
+                "NPM_OUTPUT=$(npm install -g sharp@0.34.5 --ignore-scripts 2>&1)\n" +
+                "NPM_EXIT=$?\n" +
+                "if [ $NPM_EXIT -ne 0 ]; then\n" +
+                "    echo \"sharp npm install failed (exit $NPM_EXIT): $NPM_OUTPUT\"\n" +
+                "    exit 1\n" +
+                "fi\n"
+            ) +
             "# Final verify that sharp can be imported from Node.js after install.\n" +
             "SHARP_VERIFY=$(node -e 'try { require(\"sharp\"); process.exit(0); } catch (e) { console.error(e.message); process.exit(1); }' 2>&1)\n" +
             "SHARP_VERIFY_EXIT=$?\n" +

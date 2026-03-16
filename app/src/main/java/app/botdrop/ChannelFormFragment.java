@@ -488,31 +488,34 @@ public abstract class ChannelFormFragment extends Fragment {
 
             showConnectPendingProgressWithMessage(R.string.botdrop_progress_installing_qqbot_plugin);
 
-            mService.executeCommand(QQBOT_PLUGIN_INSTALL_COMMAND, QQBOT_PLUGIN_INSTALL_TIMEOUT_SECONDS, installResult -> {
-                if (!isAdded() || getActivity() == null || getActivity().isFinishing()) {
+            mService.executeCommand(
+                OpenclawVersionUtils.buildNpmAwareCommand(QQBOT_PLUGIN_INSTALL_COMMAND),
+                QQBOT_PLUGIN_INSTALL_TIMEOUT_SECONDS,
+                installResult -> {
+                    if (!isAdded() || getActivity() == null || getActivity().isFinishing()) {
+                        hideConnectPendingProgress();
+                        return;
+                    }
+
+                    if (installResult.success || isQqBotPluginInstallNoop(installResult)) {
+                        Logger.logInfo(LOG_TAG, "QQ Bot plugin installation completed");
+                        showConnectPendingProgressWithMessage(R.string.botdrop_starting_gateway);
+                        writeConfigAndStartGateway(token, ownerId, feishuUserId, guildId);
+                        return;
+                    }
+
+                    Logger.logError(LOG_TAG, "Failed to install QQ Bot plugin: " + installResult.stderr);
+                    String errorMsg = installResult.stderr;
+                    if (TextUtils.isEmpty(errorMsg)) {
+                        errorMsg = installResult.stdout;
+                    }
+                    if (TextUtils.isEmpty(errorMsg)) {
+                        errorMsg = getString(R.string.botdrop_unknown_error_exit_code, installResult.exitCode);
+                    }
                     hideConnectPendingProgress();
-                    return;
-                }
-
-                if (installResult.success || isQqBotPluginInstallNoop(installResult)) {
-                    Logger.logInfo(LOG_TAG, "QQ Bot plugin installation completed");
-                    showConnectPendingProgressWithMessage(R.string.botdrop_starting_gateway);
-                    writeConfigAndStartGateway(token, ownerId, feishuUserId, guildId);
-                    return;
-                }
-
-                Logger.logError(LOG_TAG, "Failed to install QQ Bot plugin: " + installResult.stderr);
-                String errorMsg = installResult.stderr;
-                if (TextUtils.isEmpty(errorMsg)) {
-                    errorMsg = installResult.stdout;
-                }
-                if (TextUtils.isEmpty(errorMsg)) {
-                    errorMsg = getString(R.string.botdrop_unknown_error_exit_code, installResult.exitCode);
-                }
-                hideConnectPendingProgress();
-                showError(getString(R.string.botdrop_install_failed, errorMsg));
-                resetButton();
-            });
+                    showError(getString(R.string.botdrop_install_failed, errorMsg));
+                    resetButton();
+                });
         });
     }
 
