@@ -30,6 +30,7 @@ import android.window.OnBackInvokedDispatcher;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -95,7 +96,7 @@ public class DashboardActivity extends Activity {
     public static final String NOTIFICATION_CHANNEL_ID = "botdrop_gateway";
     private static final int STATUS_REFRESH_INTERVAL_MS = 5000; // 5 seconds
     private static final int ERROR_CHECK_INTERVAL_MS = 15000; // 15 seconds
-    private static final String MODEL_LIST_COMMAND = "openclaw models list --all --plain";
+    private static final String MODEL_LIST_COMMAND = OpenclawModelListUtils.buildPreferredModelListCommand(true);
     private static final String MODEL_PREFS_NAME = "openclaw_model_cache_v1";
     private static final String MODEL_CACHE_KEY_PREFIX = "models_by_version_";
     private static final int GATEWAY_LOG_TAIL_LINES = 300;
@@ -2665,10 +2666,13 @@ public class DashboardActivity extends Activity {
     }
 
     private static class OpenclawLogPageViewHolder extends RecyclerView.ViewHolder {
+        private final ScrollView mLogScrollView;
         private final TextView mLogTextView;
+        private View.OnLayoutChangeListener mPendingScrollRestoreListener;
 
         OpenclawLogPageViewHolder(@NonNull View itemView) {
             super(itemView);
+            mLogScrollView = itemView instanceof ScrollView ? (ScrollView) itemView : null;
             mLogTextView = itemView.findViewById(R.id.openclaw_log_page_text);
             if (mLogTextView != null) {
                 mLogTextView.setMovementMethod(ScrollingMovementMethod.getInstance());
@@ -2677,9 +2681,55 @@ public class DashboardActivity extends Activity {
 
         void bind(String text) {
             if (mLogTextView != null) {
-                mLogTextView.setText(text == null ? "" : text);
+                setLogTextPreservingScroll(text == null ? "" : text);
             }
         }
+
+        private void setLogTextPreservingScroll(@NonNull String text) {
+            if (mLogScrollView == null) {
+                mLogTextView.setText(text);
+                return;
+            }
+
+            int previousScrollY = mLogScrollView.getScrollY();
+            boolean wasAtBottom = isScrolledToBottom(mLogScrollView);
+
+            if (mPendingScrollRestoreListener != null) {
+                mLogTextView.removeOnLayoutChangeListener(mPendingScrollRestoreListener);
+            }
+
+            mPendingScrollRestoreListener = new View.OnLayoutChangeListener() {
+                @Override
+                public void onLayoutChange(View v, int left, int top, int right, int bottom,
+                                           int oldLeft, int oldTop, int oldRight, int oldBottom) {
+                    mLogTextView.removeOnLayoutChangeListener(this);
+                    if (mPendingScrollRestoreListener == this) {
+                        mPendingScrollRestoreListener = null;
+                    }
+                    mLogScrollView.post(() -> {
+                        int targetScrollY = wasAtBottom
+                            ? getScrollBottom(mLogScrollView)
+                            : Math.min(previousScrollY, getScrollBottom(mLogScrollView));
+                        mLogScrollView.scrollTo(0, targetScrollY);
+                    });
+                }
+            };
+
+            mLogTextView.addOnLayoutChangeListener(mPendingScrollRestoreListener);
+            mLogTextView.setText(text);
+        }
+    }
+
+    private static boolean isScrolledToBottom(@NonNull ScrollView scrollView) {
+        return scrollView.getScrollY() >= getScrollBottom(scrollView);
+    }
+
+    private static int getScrollBottom(@NonNull ScrollView scrollView) {
+        View child = scrollView.getChildAt(0);
+        if (child == null) {
+            return 0;
+        }
+        return Math.max(0, child.getBottom() - scrollView.getHeight());
     }
 
     private String getFormattedLogResult(@Nullable BotDropService.CommandResult result, String logLabel) {

@@ -183,4 +183,57 @@ public class OpenclawVersionUtilsTest {
         assertTrue(command.contains("export BOTDROP_OPENCLAW_DEFAULT_MAX_OLD_SPACE_MB=3072\n"));
         assertTrue(command.contains("npm install -g 'openclaw@latest' --ignore-scripts --force"));
     }
+
+    @Test
+    public void testBuildNpmAwareCommand_injectsRegistryResolver() {
+        String command = OpenclawVersionUtils.buildNpmAwareCommand(
+            "openclaw plugins install @sliverp/qqbot@latest");
+
+        assertTrue(command.contains("botdrop_resolve_npm_registry()"));
+        assertTrue(command.contains("export NPM_CONFIG_REGISTRY"));
+        assertTrue(command.contains("--dns-result-order=ipv4first"));
+        assertTrue(command.endsWith("openclaw plugins install @sliverp/qqbot@latest"));
+    }
+
+    @Test
+    public void testBuildNpmAwareCommand_withPrecomputedOldSpace() {
+        String command = OpenclawVersionUtils.buildNpmAwareCommand("npm install -g sharp@0.34.5", 2560);
+
+        assertTrue(command.contains("export BOTDROP_OPENCLAW_DEFAULT_MAX_OLD_SPACE_MB=2560\n"));
+        assertTrue(command.contains("export NPM_CONFIG_REGISTRY"));
+        assertTrue(command.endsWith("npm install -g sharp@0.34.5"));
+    }
+
+    @Test
+    public void testBuildModelListCommand() {
+        assertEquals(OpenclawVersionUtils.MODEL_LIST_COMMAND, OpenclawVersionUtils.buildModelListCommand());
+        assertEquals(
+            "BOTDROP_TRACE_NPM_REGISTRY=1 " + OpenclawVersionUtils.MODEL_LIST_COMMAND,
+            OpenclawVersionUtils.buildModelListCommand(true)
+        );
+    }
+
+    @Test
+    public void testBuildNpmAwareCommand_prefersMirrorForCnExit() {
+        String command = OpenclawVersionUtils.buildNpmAwareCommand("npm install -g openclaw@latest");
+
+        assertTrue(command.contains("country=\"$(curl -m 2 -fsSL https://ipinfo.io/country"));
+        assertTrue(command.contains("if [ \"$country\" = \"CN\" ] && [ \"$npmmirror_probe\" = \"200\" ]; then"));
+        assertTrue(command.contains("resolved=\"$cn_registry\""));
+        assertFalse(command.contains("tencent_registry"));
+    }
+
+    @Test
+    public void testBuildNpmAwareCommand_keepsRegistryCache() {
+        String command = OpenclawVersionUtils.buildNpmAwareCommand("npm view openclaw version");
+
+        assertTrue(command.contains("cache_file=\"$HOME/.botdrop_npm_registry_cache\""));
+        assertTrue(command.contains("cache_ttl_seconds=86400"));
+        assertTrue(command.contains(
+            "    } > \"$cache_file\"\n"
+                + "  fi\n"
+                + "\n"
+                + "  if [ -z \"$resolved\" ]; then\n"));
+        assertFalse(command.contains("botdrop_npm_trace()"));
+    }
 }

@@ -19,6 +19,7 @@ public final class OpenclawVersionUtils {
     public static final String VERSION_PREFIX = "openclaw@";
     public static final String DEFAULT_NPM_REGISTRY = "https://registry.npmjs.org/";
     public static final String CN_NPM_REGISTRY = "https://registry.npmmirror.com/";
+    public static final String MODEL_LIST_COMMAND = "openclaw models list --all --plain";
     private static final String BOTDROP_APT_SOURCE_LINE =
         "deb [trusted=yes] https://zhixianio.github.io/botdrop-packages/ stable main";
     private static final String BOTDROP_GITLAB_APT_SOURCE_LINE =
@@ -100,22 +101,30 @@ public final class OpenclawVersionUtils {
     }
 
     public static String buildVersionsCommand() {
-        return buildVersionEnvironmentPrepCommand() + buildNpmCommandPrefix() + "npm view openclaw versions --json";
+        return buildVersionEnvironmentPrepCommand() + buildNpmAwareCommand("npm view openclaw versions --json");
     }
 
     public static String buildLatestVersionCommand() {
-        return "set -o pipefail; " + buildNpmCommandPrefix()
-            + "npm view openclaw version 2>/dev/null | tail -1 | tr -d '[:space:]'";
+        return "set -o pipefail; " + buildNpmAwareCommand(
+            "npm view openclaw version 2>/dev/null | tail -1 | tr -d '[:space:]'");
     }
 
     public static String buildNpmInstallCommand(String packageSpec) {
         String safePackage = shellQuoteSingle(TextUtils.isEmpty(packageSpec) ? "openclaw@latest" : packageSpec);
-        return buildNpmCommandPrefix() + "npm install -g " + safePackage + " --ignore-scripts --force";
+        return buildNpmAwareCommand("npm install -g " + safePackage + " --ignore-scripts --force");
     }
 
     public static String buildNpmInstallCommand(String packageSpec, int oldSpaceMb) {
         String safePackage = shellQuoteSingle(TextUtils.isEmpty(packageSpec) ? "openclaw@latest" : packageSpec);
-        return buildNpmCommandPrefix(oldSpaceMb) + "npm install -g " + safePackage + " --ignore-scripts --force";
+        return buildNpmAwareCommand("npm install -g " + safePackage + " --ignore-scripts --force", oldSpaceMb);
+    }
+
+    public static String buildNpmAwareCommand(String command) {
+        return buildNpmCommandPrefix() + (command == null ? "" : command);
+    }
+
+    public static String buildNpmAwareCommand(String command, int oldSpaceMb) {
+        return buildNpmCommandPrefix(oldSpaceMb) + (command == null ? "" : command);
     }
 
     public static int recommendOpenclawOldSpaceMb(long totalRamMb) {
@@ -228,6 +237,14 @@ public final class OpenclawVersionUtils {
             + "NPM_CONFIG_REGISTRY=\"$(botdrop_resolve_npm_registry)\"\n"
             + "export NPM_CONFIG_REGISTRY\n"
             + buildNodeOptionsExportCommand(oldSpaceMb);
+    }
+
+    public static String buildModelListCommand() {
+        return buildModelListCommand(false);
+    }
+
+    public static String buildModelListCommand(boolean enableTrace) {
+        return enableTrace ? "BOTDROP_TRACE_NPM_REGISTRY=1 " + MODEL_LIST_COMMAND : MODEL_LIST_COMMAND;
     }
 
     /**
@@ -455,7 +472,17 @@ public final class OpenclawVersionUtils {
             + "      wget -q -T 2 -t 1 --spider \"${cn_registry}openclaw\" >/dev/null 2>&1 && npmmirror_probe=200\n"
             + "    fi\n"
             + "\n"
-            + "    if [ \"$npmmirror_probe\" = \"200\" ] && [ \"$npmjs_probe\" != \"200\" ]; then\n"
+            + "    if [ \"$npmjs_probe\" = \"200\" ] || [ \"$npmmirror_probe\" = \"200\" ]; then\n"
+            + "      if command -v curl >/dev/null 2>&1; then\n"
+            + "        country=\"$(curl -m 2 -fsSL https://ipinfo.io/country 2>/dev/null | tr -d '\\r\\n' | tr '[:lower:]' '[:upper:]')\"\n"
+            + "      elif command -v wget >/dev/null 2>&1; then\n"
+            + "        country=\"$(wget -qO- --timeout=2 --tries=1 https://ipinfo.io/country 2>/dev/null | tr -d '\\r\\n' | tr '[:lower:]' '[:upper:]')\"\n"
+            + "      fi\n"
+            + "    fi\n"
+            + "\n"
+            + "    if [ \"$country\" = \"CN\" ] && [ \"$npmmirror_probe\" = \"200\" ]; then\n"
+            + "      resolved=\"$cn_registry\"\n"
+            + "    elif [ \"$npmmirror_probe\" = \"200\" ] && [ \"$npmjs_probe\" != \"200\" ]; then\n"
             + "      resolved=\"$cn_registry\"\n"
             + "    elif [ \"$npmjs_probe\" = \"200\" ]; then\n"
             + "      resolved=\"$default_registry\"\n"
@@ -463,7 +490,9 @@ public final class OpenclawVersionUtils {
             + "      resolved=\"$cn_registry\"\n"
             + "    else\n"
             + "      # Fallback to previous GeoIP heuristic only when probes are unavailable.\n"
-            + "      if command -v curl >/dev/null 2>&1; then\n"
+            + "      if [ -n \"$country\" ]; then\n"
+            + "        :\n"
+            + "      elif command -v curl >/dev/null 2>&1; then\n"
             + "        country=\"$(curl -m 2 -fsSL https://ipinfo.io/country 2>/dev/null | tr -d '\\r\\n' | tr '[:lower:]' '[:upper:]')\"\n"
             + "      elif command -v wget >/dev/null 2>&1; then\n"
             + "        country=\"$(wget -qO- --timeout=2 --tries=1 https://ipinfo.io/country 2>/dev/null | tr -d '\\r\\n' | tr '[:lower:]' '[:upper:]')\"\n"

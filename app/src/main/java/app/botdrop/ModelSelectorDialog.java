@@ -319,7 +319,7 @@ public class ModelSelectorDialog extends Dialog {
             return;
         }
 
-        mService.executeCommand("openclaw models list --all --plain", result -> {
+        mService.executeCommand(OpenclawModelListUtils.buildPreferredModelListCommand(true), result -> {
             if (!result.success) {
                 Logger.logError(LOG_TAG, "Failed to load models from OpenClaw: exit " + result.exitCode);
                 List<ModelInfo> cached = loadCachedModels(normalizedVersion);

@@ -41,7 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class InstallFragment extends Fragment {
 
     private static final String LOG_TAG = "InstallFragment";
-    private static final String MODEL_LIST_COMMAND = "openclaw models list --all --plain";
+    private static final String MODEL_LIST_COMMAND = OpenclawModelListUtils.buildPreferredModelListCommand(true);
     private static final String PREFS_NAME = "openclaw_model_cache_v1";
     private static final String CACHE_KEY_PREFIX = "models_by_version_";
 
